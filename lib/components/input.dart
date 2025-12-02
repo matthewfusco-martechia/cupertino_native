@@ -262,11 +262,9 @@ class CNInputState extends State<CNInput> {
     switch (call.method) {
       case 'textChanged':
         final text = call.arguments['text'] as String? ?? '';
-        if (_controller.text != text) {
-          // Just update the text, don't change cursor position
-          // The native UITextView manages its own cursor
-          _controller.value = TextEditingValue(text: text);
-        }
+        // Don't update _controller - native UITextView is source of truth
+        // Just notify the callback and update our tracking
+        _lastText = text;
         widget.onChanged?.call(text);
         break;
       case 'focusChanged':

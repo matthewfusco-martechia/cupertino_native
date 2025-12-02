@@ -141,9 +141,10 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
       textView.topAnchor.constraint(equalTo: container.topAnchor),
       textView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
       
+      // Center placeholder vertically to align with button
       placeholderLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 4),
       placeholderLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -4),
-      placeholderLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
+      placeholderLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
     ])
     
     setupMethodChannel()
@@ -250,6 +251,19 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
   
   func view() -> UIView { container }
   
+  // Center text vertically when content is smaller than container
+  private func centerTextVerticallyIfNeeded() {
+    let contentHeight = textView.contentSize.height
+    let containerHeight = container.bounds.height
+    
+    if contentHeight < containerHeight && containerHeight > 0 {
+      let topInset = (containerHeight - contentHeight) / 2.0
+      textView.contentInset = UIEdgeInsets(top: max(0, topInset), left: 0, bottom: 0, right: 0)
+    } else {
+      textView.contentInset = .zero
+    }
+  }
+  
   // MARK: - UITextViewDelegate
   
   func textViewDidChange(_ textView: UITextView) {
@@ -261,8 +275,9 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     // Send text to Flutter
     channel.invokeMethod("textChanged", arguments: ["text": textView.text ?? ""])
     
-    // Update height
+    // Update height and centering
     updateHeight()
+    centerTextVerticallyIfNeeded()
     
     // Ensure cursor is visible
     scrollToCursor()
@@ -270,10 +285,14 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
   
   func textViewDidBeginEditing(_ textView: UITextView) {
     channel.invokeMethod("focusChanged", arguments: ["focused": true])
+    // Reset centering when editing starts - text should flow from top
+    textView.contentInset = .zero
   }
   
   func textViewDidEndEditing(_ textView: UITextView) {
     channel.invokeMethod("focusChanged", arguments: ["focused": false])
+    // Re-center text when editing ends if content is small
+    centerTextVerticallyIfNeeded()
   }
   
   func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
