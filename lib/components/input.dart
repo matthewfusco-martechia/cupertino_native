@@ -159,7 +159,7 @@ class CNInputState extends State<CNInput> {
   double _calculateMaxHeight() {
     // Approximate line height based on font size
     final lineHeight = widget.fontSize * 1.2;
-    const verticalPadding = 16.0; // 8 top + 8 bottom (matches iOS textContainerInset)
+    const verticalPadding = 20.0; // 8 top + 8 bottom + 4 buffer for text rendering
     return lineHeight * widget.maxLines + verticalPadding;
   }
 

@@ -107,7 +107,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
 
   double _calculateMaxHeight() {
     const lineHeight = 17.0 * 1.2; // fontSize * line height multiplier
-    const verticalPadding = 16.0; // 8 top + 8 bottom (matches iOS textContainerInset)
+    const verticalPadding = 20.0; // 8 top + 8 bottom + 4 buffer for text rendering
     return lineHeight * widget.maxLines + verticalPadding;
   }
 

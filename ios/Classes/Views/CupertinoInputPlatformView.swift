@@ -318,8 +318,11 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     // Calculate the size needed for current text
     let sizeThatFits = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
     
+    // Add small buffer to prevent text clipping
+    let heightWithBuffer = sizeThatFits.height + 4
+    
     // Clamp to min/max
-    return min(max(sizeThatFits.height, minHeight), maxHeight)
+    return min(max(heightWithBuffer, minHeight), maxHeight)
   }
   
   private func updateHeight() {
