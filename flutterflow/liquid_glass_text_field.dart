@@ -10,9 +10,10 @@ import 'package:flutter/cupertino.dart';
 // In FlutterFlow:
 // 1. Go to Settings (gear icon) > Project Dependencies
 // 2. Click "Add Dependency"
-// 3. Enter: cupertino_native
-// 4. Enter version: ^1.0.0 (or latest)
-// 5. Click "Add" and wait for rebuild
+// 3. Select "Git" source
+// 4. URL: https://github.com/matthewfusco-martechia/cupertino_native.git
+// 5. Ref: main
+// 6. Click "Add" and wait for rebuild
 //
 // Without this package, the widget will NOT compile!
 // ============================================================================
@@ -23,18 +24,12 @@ import 'package:cupertino_native/cupertino_native.dart';
 /// This widget creates a modern, translucent input field with native iOS
 /// liquid glass effect, similar to the iMessage input field.
 ///
-/// ## Setup Instructions:
-/// 1. Add `cupertino_native` package to your pubspec.yaml
-/// 2. Copy this file to your FlutterFlow custom widgets
-/// 3. Configure the parameters in FlutterFlow
-///
 /// ## Parameters:
 /// - [width]: Required width of the widget
 /// - [height]: Required minimum height of the widget
 /// - [placeholder]: Placeholder text when empty
 /// - [isDarkMode]: Toggle between dark and light mode
 /// - [trailingIconColor]: Color of the send button
-/// - [cursorColor]: Color of the text cursor
 /// - [onTrailingPressed]: Action when send button is pressed
 /// - [onTextChanged]: Action when text changes
 /// - [onFocusChanged]: Action when focus changes
@@ -46,7 +41,6 @@ class LiquidGlassTextField extends StatefulWidget {
     this.placeholder = 'Message',
     this.isDarkMode = false,
     this.trailingIconColor,
-    this.cursorColor,
     this.onTrailingPressed,
     this.onTextChanged,
     this.onFocusChanged,
@@ -69,9 +63,6 @@ class LiquidGlassTextField extends StatefulWidget {
   /// The color of the trailing send button icon.
   final Color? trailingIconColor;
 
-  /// The color of the text cursor and selection handles.
-  final Color? cursorColor;
-
   /// Action to perform when the trailing send button is pressed.
   final Future<dynamic> Function()? onTrailingPressed;
 
@@ -93,7 +84,6 @@ class LiquidGlassTextField extends StatefulWidget {
 
 class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   final TextEditingController _controller = TextEditingController();
-  final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
   double _currentHeight = 50.0;
 
   @override
@@ -114,16 +104,11 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     return lineHeight * widget.maxLines + verticalPadding;
   }
 
-  /// Call this method to unfocus the text field and dismiss the keyboard.
-  void unfocus() {
-    _inputKey.currentState?.unfocus();
-  }
-
   @override
   Widget build(BuildContext context) {
     final effectiveCornerRadius = widget.cornerRadius ?? widget.height / 2;
     final effectiveTrailingColor =
-        widget.trailingIconColor ?? CupertinoColors.activeBlue;
+        widget.trailingIconColor ?? const Color(0xFF007AFF); // iOS blue
 
     return Theme(
       data: widget.isDarkMode ? ThemeData.dark() : ThemeData.light(),
@@ -154,16 +139,14 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                       bottom: _currentHeight > widget.height ? 8.0 : 0.0,
                     ),
                     child: CNInput(
-                      key: _inputKey,
                       controller: _controller,
                       placeholder: widget.placeholder,
-                      backgroundColor: CupertinoColors.transparent,
+                      backgroundColor: const Color(0x00000000), // transparent
                       borderStyle: CNInputBorderStyle.none,
                       minHeight: widget.height,
                       textColor: widget.isDarkMode
-                          ? CupertinoColors.white
-                          : CupertinoColors.black,
-                      cursorColor: widget.cursorColor,
+                          ? const Color(0xFFFFFFFF) // white
+                          : const Color(0xFF000000), // black
                       maxLines: widget.maxLines,
                       keyboardType: TextInputType.multiline,
                       textInputAction: TextInputAction.newline,
@@ -193,10 +176,10 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                     bottom: _currentHeight > widget.height ? 8.0 : 0.0,
                   ),
                   child: CNButton.icon(
-                    icon: CNSymbol(
+                    icon: const CNSymbol(
                       'arrow.up',
                       size: 16,
-                      color: CupertinoColors.white,
+                      color: Color(0xFFFFFFFF), // white
                     ),
                     size: 32,
                     style: CNButtonStyle.prominentGlass,
@@ -227,4 +210,3 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     _controller.clear();
   }
 }
-
