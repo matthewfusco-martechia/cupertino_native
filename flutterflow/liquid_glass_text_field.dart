@@ -62,6 +62,7 @@ class LiquidGlassTextField extends StatefulWidget {
     this.maxLines = 10,
     this.cornerRadius,
     this.clearOnSubmit = true,
+    this.initialText,
   });
 
   /// The width of the widget (required by FlutterFlow).
@@ -99,6 +100,11 @@ class LiquidGlassTextField extends StatefulWidget {
   /// Whether to clear the text field after submit. Defaults to true.
   final bool clearOnSubmit;
 
+  /// Initial text to prefill the text field.
+  /// Bind this to a page state variable to control the text from outside.
+  /// When this value changes, the text field will update.
+  final String? initialText;
+
   @override
   State<LiquidGlassTextField> createState() => _LiquidGlassTextFieldState();
 }
@@ -113,6 +119,23 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   void initState() {
     super.initState();
     _currentHeight = widget.height;
+    // Set initial text if provided
+    if (widget.initialText != null && widget.initialText!.isNotEmpty) {
+      _controller.text = widget.initialText!;
+      _currentText = widget.initialText!;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant LiquidGlassTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update text when initialText changes from outside
+    if (widget.initialText != oldWidget.initialText && 
+        widget.initialText != null &&
+        widget.initialText != _currentText) {
+      _controller.text = widget.initialText!;
+      _currentText = widget.initialText!;
+    }
   }
 
   @override
