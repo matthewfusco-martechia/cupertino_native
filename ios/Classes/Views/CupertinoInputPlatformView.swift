@@ -280,13 +280,15 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     channel.invokeMethod("textChanged", arguments: ["text": textView.text ?? ""])
     
     // Force layout update before calculating height
+    textView.setNeedsLayout()
     textView.layoutIfNeeded()
+    container.setNeedsLayout()
     container.layoutIfNeeded()
     
     notifyHeightChange()
     
     // Scroll to cursor position after layout updates
-    DispatchQueue.main.async { [weak self] in
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
       guard let self = self else { return }
       self.textView.layoutIfNeeded()
       self.scrollToCursor()
@@ -302,11 +304,16 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     
     // Force the text view to scroll to show the cursor
     var rectToShow = cursorRect
-    rectToShow.size.height += 20 // Add padding below cursor
+    rectToShow.size.height += 24 // Add padding below cursor for better visibility
     rectToShow.origin.y = max(0, rectToShow.origin.y)
     
-    // If scroll is enabled, scroll to rect
+    // Always try to scroll to cursor - UITextView will handle if scroll is not needed
     if textView.isScrollEnabled {
+      // Use scrollRangeToVisible for more reliable scrolling
+      let range = textView.selectedRange
+      textView.scrollRangeToVisible(range)
+      
+      // Also use scrollRectToVisible as a backup
       textView.scrollRectToVisible(rectToShow, animated: false)
     }
   }
@@ -329,9 +336,15 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     
     // For multiline, when pressing return, scroll to cursor after the change
     if text == "\n" && maxLines > 1 {
-      DispatchQueue.main.async { [weak self] in
-        self?.notifyHeightChange()
-        self?.scrollToCursor()
+      // Delay to allow the text to be inserted first
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+        guard let self = self else { return }
+        self.textView.layoutIfNeeded()
+        self.notifyHeightChange()
+        // Additional delay to ensure height change is processed
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
+          self?.scrollToCursor()
+        }
       }
     }
     
@@ -350,13 +363,22 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     let width = textView.bounds.width > 0 ? textView.bounds.width : container.bounds.width
     guard width > 0 else { return minHeight }
     
+    // Temporarily disable scrolling to get accurate size
+    let wasScrollEnabled = textView.isScrollEnabled
+    textView.isScrollEnabled = false
+    
     let size = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
     let calculatedHeight = min(max(size.height, minHeight), maxHeight)
     
     // Enable scrolling when content exceeds max height
     let shouldScroll = size.height > maxHeight
-    if textView.isScrollEnabled != shouldScroll {
-      textView.isScrollEnabled = shouldScroll
+    textView.isScrollEnabled = shouldScroll
+    
+    // If we just enabled scrolling, scroll to bottom to show latest text
+    if shouldScroll && !wasScrollEnabled {
+      DispatchQueue.main.async { [weak self] in
+        self?.scrollToCursor()
+      }
     }
     
     return calculatedHeight
@@ -368,8 +390,8 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
   }
   
   private func notifyHeightChange() {
-    // Delay to ensure layout is complete
-    DispatchQueue.main.async { [weak self] in
+    // Use asyncAfter to ensure layout is fully complete before calculating height
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
       guard let self = self else { return }
       let height = self.calculateContentHeight()
       self.channel.invokeMethod("heightChanged", arguments: ["height": height])
