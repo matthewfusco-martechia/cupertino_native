@@ -278,11 +278,18 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     guard isEnabled else { return }
     placeholderLabel.isHidden = !textView.text.isEmpty
     channel.invokeMethod("textChanged", arguments: ["text": textView.text ?? ""])
+    
+    // Force layout update before calculating height
+    textView.layoutIfNeeded()
+    container.layoutIfNeeded()
+    
     notifyHeightChange()
     
     // Scroll to cursor position after layout updates
     DispatchQueue.main.async { [weak self] in
-      self?.scrollToCursor()
+      guard let self = self else { return }
+      self.textView.layoutIfNeeded()
+      self.scrollToCursor()
     }
   }
   
@@ -293,10 +300,15 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     let cursorRect = textView.caretRect(for: selectedRange.end)
     guard !cursorRect.isNull && !cursorRect.isInfinite else { return }
     
-    // Always try to scroll to make cursor visible
+    // Force the text view to scroll to show the cursor
     var rectToShow = cursorRect
     rectToShow.size.height += 20 // Add padding below cursor
-    textView.scrollRectToVisible(rectToShow, animated: false)
+    rectToShow.origin.y = max(0, rectToShow.origin.y)
+    
+    // If scroll is enabled, scroll to rect
+    if textView.isScrollEnabled {
+      textView.scrollRectToVisible(rectToShow, animated: false)
+    }
   }
   
   func textViewDidBeginEditing(_ textView: UITextView) {
@@ -361,12 +373,20 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
       guard let self = self else { return }
       let height = self.calculateContentHeight()
       self.channel.invokeMethod("heightChanged", arguments: ["height": height])
+      
+      // Force layout after height change
+      self.textView.setNeedsLayout()
+      self.textView.layoutIfNeeded()
     }
   }
   
   // Called when the view is laid out
   override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
     if keyPath == "bounds" {
+      // Force text view to relayout when container bounds change
+      textView.setNeedsLayout()
+      textView.layoutIfNeeded()
+      
       // Only notify once on initial layout, and then on text changes
       if !hasNotifiedInitialHeight && container.bounds.width > 0 {
         hasNotifiedInitialHeight = true
