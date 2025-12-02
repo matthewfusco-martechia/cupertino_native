@@ -105,6 +105,7 @@ class LiquidGlassTextField extends StatefulWidget {
 
 class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   final TextEditingController _controller = TextEditingController();
+  final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
   double _currentHeight = 50.0;
   String _currentText = '';
 
@@ -141,8 +142,8 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
         });
       }
       
-      // Dismiss keyboard after submit
-      FocusScope.of(context).unfocus();
+      // Dismiss keyboard after submit - call native unfocus
+      _inputKey.currentState?.unfocus();
     }
   }
 
@@ -177,6 +178,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                   child: Padding(
                     padding: const EdgeInsets.only(left: 12.0, right: 4.0),
                     child: CNInput(
+                      key: _inputKey,
                       controller: _controller,
                       placeholder: widget.placeholder,
                       backgroundColor: const Color(0x00000000), // transparent
