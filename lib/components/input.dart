@@ -258,13 +258,21 @@ class CNInputState extends State<CNInput> {
     _lastPlaceholder = widget.placeholder;
   }
 
+  bool _isUpdatingFromNative = false;
+  
   Future<dynamic> _onMethodCall(MethodCall call) async {
     switch (call.method) {
       case 'textChanged':
         final text = call.arguments['text'] as String? ?? '';
-        // Don't update _controller - native UITextView is source of truth
-        // Just notify the callback and update our tracking
+        // Update controller text but mark that this came from native
+        // so we don't sync it back
+        _isUpdatingFromNative = true;
         _lastText = text;
+        // Update controller text only, preserving that native owns cursor
+        if (_controller.text != text) {
+          _controller.text = text;
+        }
+        _isUpdatingFromNative = false;
         widget.onChanged?.call(text);
         break;
       case 'focusChanged':
@@ -296,8 +304,8 @@ class CNInputState extends State<CNInput> {
     final ch = _channel;
     if (ch == null) return;
 
-    // Sync text if changed
-    if (_lastText != _controller.text) {
+    // Only sync text if changed FROM Flutter (not from native)
+    if (!_isUpdatingFromNative && _lastText != _controller.text) {
       await ch.invokeMethod('setText', {'text': _controller.text});
       _lastText = _controller.text;
     }
