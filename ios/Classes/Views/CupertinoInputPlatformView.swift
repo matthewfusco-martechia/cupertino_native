@@ -253,12 +253,16 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
   
   // Center text vertically when content is smaller than container
   private func centerTextVerticallyIfNeeded() {
+    // Force layout to get accurate content size
+    textView.layoutIfNeeded()
+    
     let contentHeight = textView.contentSize.height
     let containerHeight = container.bounds.height
     
-    if contentHeight < containerHeight && containerHeight > 0 {
+    // Only center if content is smaller than container
+    if contentHeight > 0 && containerHeight > 0 && contentHeight < containerHeight {
       let topInset = (containerHeight - contentHeight) / 2.0
-      textView.contentInset = UIEdgeInsets(top: max(0, topInset), left: 0, bottom: 0, right: 0)
+      textView.contentInset = UIEdgeInsets(top: topInset, left: 0, bottom: 0, right: 0)
     } else {
       textView.contentInset = .zero
     }
@@ -285,8 +289,8 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
   
   func textViewDidBeginEditing(_ textView: UITextView) {
     channel.invokeMethod("focusChanged", arguments: ["focused": true])
-    // Reset centering when editing starts - text should flow from top
-    textView.contentInset = .zero
+    // Keep text centered while editing if content is small
+    centerTextVerticallyIfNeeded()
   }
   
   func textViewDidEndEditing(_ textView: UITextView) {
