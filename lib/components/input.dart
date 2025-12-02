@@ -241,12 +241,9 @@ class CNInputState extends State<CNInput> {
             },
           );
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 100),
-      constraints: BoxConstraints(
-        minHeight: widget.minHeight,
-        maxHeight: _calculateMaxHeight(),
-      ),
+    // Use a simple SizedBox - no animation to avoid timing issues
+    // The native UITextView handles its own scrolling
+    return SizedBox(
       height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
       child: platformView,
     );

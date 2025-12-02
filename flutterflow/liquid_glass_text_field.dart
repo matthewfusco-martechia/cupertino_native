@@ -117,23 +117,24 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     final effectiveTrailingColor =
         widget.trailingIconColor ?? const Color(0xFF007AFF); // iOS blue
 
+    final currentHeight = _currentHeight.clamp(widget.height, _calculateMaxHeight());
+    
     return Theme(
       data: widget.isDarkMode ? ThemeData.dark() : ThemeData.light(),
       child: CupertinoTheme(
         data: CupertinoThemeData(
           brightness: widget.isDarkMode ? Brightness.dark : Brightness.light,
         ),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          height: _currentHeight.clamp(widget.height, _calculateMaxHeight()),
+        child: SizedBox(
+          height: currentHeight,
           width: widget.width,
           child: CNGlassEffectContainer(
-            height: _currentHeight.clamp(widget.height, _calculateMaxHeight()),
+            height: currentHeight,
             width: widget.width,
             glassStyle: CNGlassStyle.regular,
             cornerRadius: effectiveCornerRadius,
             child: Row(
-              crossAxisAlignment: _currentHeight > widget.height
+              crossAxisAlignment: currentHeight > widget.height
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.center,
               children: [
@@ -143,14 +144,14 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                     padding: EdgeInsets.only(
                       left: 16.0,
                       right: 4.0,
-                      bottom: _currentHeight > widget.height ? 8.0 : 0.0,
+                      bottom: currentHeight > widget.height ? 8.0 : 0.0,
                     ),
                     child: CNInput(
                       controller: _controller,
                       placeholder: widget.placeholder,
                       backgroundColor: const Color(0x00000000), // transparent
                       borderStyle: CNInputBorderStyle.none,
-                      minHeight: widget.height,
+                      minHeight: widget.height - 16, // Account for padding
                       textColor: widget.isDarkMode
                           ? const Color(0xFFFFFFFF) // white
                           : const Color(0xFF000000), // black
@@ -180,7 +181,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                 Padding(
                   padding: EdgeInsets.only(
                     right: 8.0,
-                    bottom: _currentHeight > widget.height ? 8.0 : 0.0,
+                    bottom: currentHeight > widget.height ? 8.0 : 0.0,
                   ),
                   child: CNButton.icon(
                     icon: const CNSymbol(

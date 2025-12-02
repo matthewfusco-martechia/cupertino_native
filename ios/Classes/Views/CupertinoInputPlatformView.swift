@@ -10,11 +10,8 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
   private var maxLines: Int = 1
   private var fontSize: CGFloat = 17.0
   private var placeholderText: String?
-  private var hasNotifiedInitialHeight: Bool = false
-  
-  deinit {
-    container.removeObserver(self, forKeyPath: "bounds")
-  }
+  private var minHeight: CGFloat = 48.0
+  private var maxHeight: CGFloat = 200.0
   
   init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
     self.channel = FlutterMethodChannel(
@@ -61,20 +58,31 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     self.fontSize = fontSize
     self.placeholderText = placeholder
     
+    // Calculate height bounds
+    let lineHeight = fontSize * 1.2
+    let verticalPadding: CGFloat = 28 // 14 top + 14 bottom
+    self.minHeight = lineHeight + verticalPadding
+    self.maxHeight = lineHeight * CGFloat(maxLines) + verticalPadding
+    
     super.init()
     
     container.backgroundColor = .clear
+    container.clipsToBounds = true
     
-    // Configure text view
+    // Configure text view - SIMPLE SETUP
     textView.translatesAutoresizingMaskIntoConstraints = false
     textView.text = text
     textView.font = UIFont.systemFont(ofSize: fontSize)
     textView.isEditable = enabled
     textView.isSelectable = true
     textView.delegate = self
-    textView.isScrollEnabled = false // Allow auto-sizing
     textView.textContainerInset = UIEdgeInsets(top: 14, left: 4, bottom: 14, right: 4)
     textView.textContainer.lineFragmentPadding = 0
+    
+    // KEY: Always enable scrolling for multi-line - this is how iMessage works
+    textView.isScrollEnabled = true
+    textView.showsVerticalScrollIndicator = false
+    textView.alwaysBounceVertical = false
     
     // Apply colors
     if let tc = textColor {
@@ -84,25 +92,128 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     }
     
     if let bg = backgroundColor {
-      // Check if color is transparent (alpha == 0)
       var alpha: CGFloat = 0
       bg.getWhite(nil, alpha: &alpha)
-      if alpha == 0 {
-        textView.backgroundColor = .clear
-      } else {
-        textView.backgroundColor = bg
-      }
+      textView.backgroundColor = alpha == 0 ? .clear : bg
     } else {
       textView.backgroundColor = .clear
     }
     
-    // Apply cursor color (tintColor controls cursor and selection)
     if let cc = cursorColor {
       textView.tintColor = cc
     }
     
     // Apply border style
-    switch borderStyle {
+    applyBorderStyle(borderStyle)
+    
+    // Configure keyboard
+    textView.keyboardType = Self.keyboardTypeFromString(keyboardType)
+    textView.returnKeyType = Self.returnKeyTypeFromString(returnKeyType)
+    textView.autocorrectionType = Self.autocorrectionTypeFromString(autocorrectionType)
+    textView.isSecureTextEntry = isSecure
+    
+    if #available(iOS 10.0, *), let tct = textContentType {
+      textView.textContentType = Self.textContentTypeFromString(tct)
+    }
+    
+    self.isEnabled = enabled
+    
+    // Configure placeholder
+    placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
+    placeholderLabel.text = placeholder
+    placeholderLabel.font = UIFont.systemFont(ofSize: fontSize)
+    placeholderLabel.numberOfLines = 1
+    if #available(iOS 13.0, *) {
+      placeholderLabel.textColor = .placeholderText
+    } else {
+      placeholderLabel.textColor = .lightGray
+    }
+    placeholderLabel.isHidden = !(text?.isEmpty ?? true)
+    
+    container.addSubview(textView)
+    container.addSubview(placeholderLabel)
+    
+    // Simple constraints - fill the container
+    NSLayoutConstraint.activate([
+      textView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+      textView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+      textView.topAnchor.constraint(equalTo: container.topAnchor),
+      textView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+      
+      placeholderLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 4),
+      placeholderLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -4),
+      placeholderLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
+    ])
+    
+    setupMethodChannel()
+  }
+  
+  private func setupMethodChannel() {
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(nil)
+        return
+      }
+      switch call.method {
+      case "setText":
+        if let args = call.arguments as? [String: Any], let text = args["text"] as? String {
+          self.textView.text = text
+          self.placeholderLabel.isHidden = !text.isEmpty
+          self.updateHeight()
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing text", details: nil))
+        }
+      case "getText":
+        result(self.textView.text ?? "")
+      case "setPlaceholder":
+        if let args = call.arguments as? [String: Any], let placeholder = args["placeholder"] as? String {
+          self.placeholderLabel.text = placeholder
+          self.placeholderText = placeholder
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing placeholder", details: nil))
+        }
+      case "setEnabled":
+        if let args = call.arguments as? [String: Any], let enabled = args["enabled"] as? NSNumber {
+          self.isEnabled = enabled.boolValue
+          self.textView.isEditable = self.isEnabled
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing enabled", details: nil))
+        }
+      case "focus":
+        self.textView.becomeFirstResponder()
+        result(nil)
+      case "unfocus":
+        self.textView.resignFirstResponder()
+        result(nil)
+      case "setBorderStyle":
+        if let args = call.arguments as? [String: Any], let style = args["borderStyle"] as? String {
+          self.applyBorderStyle(style)
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing borderStyle", details: nil))
+        }
+      case "setSecure":
+        if let args = call.arguments as? [String: Any], let secure = args["isSecure"] as? NSNumber {
+          self.textView.isSecureTextEntry = secure.boolValue
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing isSecure", details: nil))
+        }
+      case "setBrightness":
+        result(nil)
+      case "getContentHeight":
+        result(self.calculateContentHeight())
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+  
+  private func applyBorderStyle(_ style: String) {
+    switch style {
     case "none":
       textView.layer.borderWidth = 0
       textView.layer.cornerRadius = 0
@@ -134,140 +245,6 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
       textView.layer.borderWidth = 0.5
       textView.layer.cornerRadius = 8
     }
-    
-    // Configure keyboard
-    textView.keyboardType = Self.keyboardTypeFromString(keyboardType)
-    textView.returnKeyType = Self.returnKeyTypeFromString(returnKeyType)
-    textView.autocorrectionType = Self.autocorrectionTypeFromString(autocorrectionType)
-    textView.isSecureTextEntry = isSecure
-    
-    // Set text content type if available
-    if #available(iOS 10.0, *), let tct = textContentType {
-      textView.textContentType = Self.textContentTypeFromString(tct)
-    }
-    
-    self.isEnabled = enabled
-    
-    // Configure placeholder label
-    placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
-    placeholderLabel.text = placeholder
-    placeholderLabel.font = UIFont.systemFont(ofSize: fontSize)
-    placeholderLabel.numberOfLines = 1
-    if #available(iOS 13.0, *) {
-      placeholderLabel.textColor = .placeholderText
-    } else {
-      placeholderLabel.textColor = .lightGray
-    }
-    placeholderLabel.isHidden = !(text?.isEmpty ?? true)
-    
-    container.addSubview(textView)
-    textView.addSubview(placeholderLabel)
-    
-    NSLayoutConstraint.activate([
-      textView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-      textView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-      textView.topAnchor.constraint(equalTo: container.topAnchor),
-      textView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-      
-      placeholderLabel.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 4),
-      placeholderLabel.trailingAnchor.constraint(equalTo: textView.trailingAnchor, constant: -4),
-      placeholderLabel.topAnchor.constraint(equalTo: textView.topAnchor, constant: 14),
-    ])
-    
-    // Observe bounds changes to recalculate height
-    container.addObserver(self, forKeyPath: "bounds", options: [.new], context: nil)
-    
-    channel.setMethodCallHandler { [weak self] call, result in
-      guard let self = self else {
-        result(nil)
-        return
-      }
-      switch call.method {
-      case "setText":
-        if let args = call.arguments as? [String: Any], let text = args["text"] as? String {
-          self.textView.text = text
-          self.placeholderLabel.isHidden = !text.isEmpty
-          self.notifyHeightChange()
-          result(nil)
-        } else {
-          result(FlutterError(code: "bad_args", message: "Missing text", details: nil))
-        }
-      case "getText":
-        result(self.textView.text ?? "")
-      case "setPlaceholder":
-        if let args = call.arguments as? [String: Any], let placeholder = args["placeholder"] as? String {
-          self.placeholderLabel.text = placeholder
-          self.placeholderText = placeholder
-          result(nil)
-        } else {
-          result(FlutterError(code: "bad_args", message: "Missing placeholder", details: nil))
-        }
-      case "setEnabled":
-        if let args = call.arguments as? [String: Any], let enabled = args["enabled"] as? NSNumber {
-          self.isEnabled = enabled.boolValue
-          self.textView.isEditable = self.isEnabled
-          result(nil)
-        } else {
-          result(FlutterError(code: "bad_args", message: "Missing enabled", details: nil))
-        }
-      case "focus":
-        DispatchQueue.main.async {
-          self.textView.becomeFirstResponder()
-        }
-        result(nil)
-      case "unfocus":
-        DispatchQueue.main.async {
-          self.textView.resignFirstResponder()
-        }
-        result(nil)
-      case "setBorderStyle":
-        if let args = call.arguments as? [String: Any], let style = args["borderStyle"] as? String {
-          switch style {
-          case "none":
-            self.textView.layer.borderWidth = 0
-            self.textView.layer.cornerRadius = 0
-          case "line":
-            if #available(iOS 13.0, *) {
-              self.textView.layer.borderColor = UIColor.separator.cgColor
-            }
-            self.textView.layer.borderWidth = 1
-            self.textView.layer.cornerRadius = 0
-          case "bezel":
-            if #available(iOS 13.0, *) {
-              self.textView.layer.borderColor = UIColor.separator.cgColor
-            }
-            self.textView.layer.borderWidth = 1
-            self.textView.layer.cornerRadius = 4
-          case "roundedRect":
-            if #available(iOS 13.0, *) {
-              self.textView.layer.borderColor = UIColor.separator.cgColor
-            }
-            self.textView.layer.borderWidth = 0.5
-            self.textView.layer.cornerRadius = 8
-          default:
-            break
-          }
-          result(nil)
-        } else {
-          result(FlutterError(code: "bad_args", message: "Missing borderStyle", details: nil))
-        }
-      case "setSecure":
-        if let args = call.arguments as? [String: Any], let secure = args["isSecure"] as? NSNumber {
-          self.textView.isSecureTextEntry = secure.boolValue
-          result(nil)
-        } else {
-          result(FlutterError(code: "bad_args", message: "Missing isSecure", details: nil))
-        }
-      case "setBrightness":
-        // No longer override user interface style - let the system handle it
-        result(nil)
-      case "getContentHeight":
-        let height = self.calculateContentHeight()
-        result(height)
-      default:
-        result(FlutterMethodNotImplemented)
-      }
-    }
   }
   
   func view() -> UIView { container }
@@ -276,68 +253,18 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
   
   func textViewDidChange(_ textView: UITextView) {
     guard isEnabled else { return }
+    
+    // Update placeholder visibility
     placeholderLabel.isHidden = !textView.text.isEmpty
+    
+    // Send text to Flutter
     channel.invokeMethod("textChanged", arguments: ["text": textView.text ?? ""])
     
-    // Force layout update before calculating height
-    textView.setNeedsLayout()
-    textView.layoutIfNeeded()
-    container.setNeedsLayout()
-    container.layoutIfNeeded()
+    // Update height
+    updateHeight()
     
-    notifyHeightChange()
-    
-    // Scroll to cursor position after layout updates
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
-      guard let self = self else { return }
-      self.textView.layoutIfNeeded()
-      self.scrollToCursor()
-    }
-  }
-  
-  private func scrollToCursor() {
-    guard let selectedRange = textView.selectedTextRange else { return }
-    
-    // Get cursor rect
-    let cursorRect = textView.caretRect(for: selectedRange.end)
-    guard !cursorRect.isNull && !cursorRect.isInfinite else { return }
-    
-    // Force the text view to scroll to show the cursor
-    var rectToShow = cursorRect
-    rectToShow.size.height += 24 // Add padding below cursor for better visibility
-    rectToShow.origin.y = max(0, rectToShow.origin.y)
-    
-    // Check if cursor is outside visible bounds
-    let visibleHeight = container.bounds.height
-    let cursorBottom = cursorRect.origin.y + cursorRect.size.height
-    
-    // If cursor is below visible area, we need to scroll even if scroll is "disabled"
-    if cursorBottom > visibleHeight || textView.isScrollEnabled {
-      // Temporarily enable scroll to allow scrolling to cursor
-      let wasScrollEnabled = textView.isScrollEnabled
-      textView.isScrollEnabled = true
-      
-      // Use scrollRangeToVisible for more reliable scrolling
-      let range = textView.selectedRange
-      textView.scrollRangeToVisible(range)
-      
-      // Also use scrollRectToVisible as a backup
-      textView.scrollRectToVisible(rectToShow, animated: false)
-      
-      // Restore scroll state if we temporarily enabled it
-      // But only if we're still in "growth mode" (content fits within maxLines)
-      if !wasScrollEnabled {
-        let lineHeight = fontSize * 1.2
-        let verticalPadding: CGFloat = 28
-        let maxHeight = lineHeight * CGFloat(maxLines) + verticalPadding
-        let contentHeight = textView.sizeThatFits(CGSize(width: textView.bounds.width, height: .greatestFiniteMagnitude)).height
-        
-        // Only disable scroll if content still fits
-        if contentHeight <= maxHeight {
-          textView.isScrollEnabled = false
-        }
-      }
-    }
+    // Ensure cursor is visible
+    scrollToCursor()
   }
   
   func textViewDidBeginEditing(_ textView: UITextView) {
@@ -349,92 +276,42 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
   }
   
   func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-    // Handle return key for single line mode
+    // For single line, return key submits
     if maxLines == 1 && text == "\n" {
       channel.invokeMethod("submitted", arguments: ["text": textView.text ?? ""])
       textView.resignFirstResponder()
       return false
     }
-    
-    // For multiline, when pressing return, scroll to cursor after the change
-    if text == "\n" && maxLines > 1 {
-      // Delay to allow the text to be inserted first
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-        guard let self = self else { return }
-        self.textView.layoutIfNeeded()
-        self.notifyHeightChange()
-        // Additional delay to ensure height change is processed
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
-          self?.scrollToCursor()
-        }
-      }
-    }
-    
     return true
   }
   
-  // MARK: - Height Calculation
+  // MARK: - Height Management
   
   private func calculateContentHeight() -> CGFloat {
-    let lineHeight = fontSize * 1.2
-    let verticalPadding: CGFloat = 28 // 14 top + 14 bottom
-    let minHeight = lineHeight + verticalPadding
-    let maxHeight = lineHeight * CGFloat(maxLines) + verticalPadding
-    
-    // Get the width for calculation - use container width if available
     let width = textView.bounds.width > 0 ? textView.bounds.width : container.bounds.width
     guard width > 0 else { return minHeight }
     
-    // Temporarily disable scrolling to get accurate size
-    let wasScrollEnabled = textView.isScrollEnabled
-    textView.isScrollEnabled = false
+    // Calculate the size needed for current text
+    let sizeThatFits = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
     
-    let size = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-    let calculatedHeight = min(max(size.height, minHeight), maxHeight)
-    
-    // Enable scrolling when content exceeds max height
-    let shouldScroll = size.height > maxHeight
-    textView.isScrollEnabled = shouldScroll
-    
-    // If we just enabled scrolling, scroll to bottom to show latest text
-    if shouldScroll && !wasScrollEnabled {
-      DispatchQueue.main.async { [weak self] in
-        self?.scrollToCursor()
-      }
-    }
-    
-    return calculatedHeight
+    // Clamp to min/max
+    return min(max(sizeThatFits.height, minHeight), maxHeight)
   }
   
-  private func scrollToBottom() {
-    let bottomOffset = CGPoint(x: 0, y: max(0, textView.contentSize.height - textView.bounds.height))
-    textView.setContentOffset(bottomOffset, animated: false)
+  private func updateHeight() {
+    let newHeight = calculateContentHeight()
+    channel.invokeMethod("heightChanged", arguments: ["height": newHeight])
   }
   
-  private func notifyHeightChange() {
-    // Use asyncAfter to ensure layout is fully complete before calculating height
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
-      guard let self = self else { return }
-      let height = self.calculateContentHeight()
-      self.channel.invokeMethod("heightChanged", arguments: ["height": height])
-      
-      // Force layout after height change
-      self.textView.setNeedsLayout()
-      self.textView.layoutIfNeeded()
-    }
-  }
-  
-  // Called when the view is laid out
-  override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-    if keyPath == "bounds" {
-      // Force text view to relayout when container bounds change
-      textView.setNeedsLayout()
-      textView.layoutIfNeeded()
-      
-      // Only notify once on initial layout, and then on text changes
-      if !hasNotifiedInitialHeight && container.bounds.width > 0 {
-        hasNotifiedInitialHeight = true
-        notifyHeightChange()
+  private func scrollToCursor() {
+    // Simple and reliable - just scroll to make selection visible
+    if let selectedRange = textView.selectedTextRange {
+      let cursorRect = textView.caretRect(for: selectedRange.end)
+      if !cursorRect.isNull && !cursorRect.isInfinite {
+        // Add some padding
+        var rectToShow = cursorRect
+        rectToShow.size.height += 10
+        textView.scrollRectToVisible(rectToShow, animated: false)
       }
     }
   }
@@ -525,123 +402,3 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     }
   }
 }
-
-
-#if DEBUG
-  import SwiftUI
-
-  // A dummy class to satisfy the initializer of CupertinoInputPlatformView
-  // which requires a FlutterBinaryMessenger. This won't be used in the preview.
-  private class DummyBinaryMessenger: NSObject, FlutterBinaryMessenger {
-    func send(onChannel channel: String, message: Data?) {}
-    func send(
-      onChannel channel: String, message: Data?, binaryReply reply: FlutterBinaryReply? = nil
-    ) {}
-    func setMessageHandlerOnChannel(
-      _ channel: String, binaryMessageHandler handler: FlutterBinaryMessageHandler? = nil
-    ) -> FlutterBinaryMessengerConnection {
-      return 0
-    }
-    func cleanUpConnection(_ connection: FlutterBinaryMessengerConnection) {}
-  }
-
-  private struct CupertinoInputPlatformView_Preview: UIViewRepresentable {
-    let args: [String: Any]
-    
-    func makeUIView(context: Context) -> UIView {
-      let containerView = UIView()
-      containerView.backgroundColor = .systemBackground
-
-      let cupertinoInputPlatformView = CupertinoInputPlatformView(
-        frame: CGRect(x: 0, y: 0, width: 300, height: 44),
-        viewId: 0,
-        args: args,
-        messenger: DummyBinaryMessenger()
-      ).view()
-      
-      // Create a container that represents an input field
-      let inputContainer = UIView()
-      inputContainer.backgroundColor = .systemBackground
-
-      inputContainer.addSubview(cupertinoInputPlatformView)
-      containerView.addSubview(inputContainer)
-      
-      // Set up constraints
-      inputContainer.translatesAutoresizingMaskIntoConstraints = false
-      cupertinoInputPlatformView.translatesAutoresizingMaskIntoConstraints = false
-      
-      NSLayoutConstraint.activate([
-        inputContainer.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
-        inputContainer.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-        inputContainer.widthAnchor.constraint(equalToConstant: 300),
-        inputContainer.heightAnchor.constraint(equalToConstant: 44),
-        
-        cupertinoInputPlatformView.topAnchor.constraint(equalTo: inputContainer.topAnchor),
-        cupertinoInputPlatformView.bottomAnchor.constraint(equalTo: inputContainer.bottomAnchor),
-        cupertinoInputPlatformView.leadingAnchor.constraint(equalTo: inputContainer.leadingAnchor),
-        cupertinoInputPlatformView.trailingAnchor.constraint(equalTo: inputContainer.trailingAnchor),
-      ])
-      
-      return containerView
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {}
-  }
-
-  // The Preview provider that shows your input field in the Xcode canvas
-  @available(iOS 13.0, *)
-  struct CupertinoInputPreview: PreviewProvider {
-    static var previews: some View {
-      // You can create multiple previews to see different styles
-      Group {
-        CupertinoInputPlatformView_Preview(args: [
-          "placeholder": "Enter your name",
-          "borderStyle": "roundedRect",
-          "fontSize": 17,
-        ])
-        .previewDisplayName("Default Input")
-
-        CupertinoInputPlatformView_Preview(args: [
-          "placeholder": "Search...",
-          "borderStyle": "roundedRect",
-          "keyboardType": "webSearch",
-          "returnKeyType": "search",
-        ])
-        .previewDisplayName("Search Input")
-
-        CupertinoInputPlatformView_Preview(args: [
-          "placeholder": "Enter password",
-          "borderStyle": "roundedRect",
-          "isSecure": true,
-          "textContentType": "password",
-        ])
-        .previewDisplayName("Password Input")
-
-        CupertinoInputPlatformView_Preview(args: [
-          "placeholder": "Email address",
-          "borderStyle": "line",
-          "keyboardType": "emailAddress",
-          "textContentType": "emailAddress",
-          "autocorrectionType": "no",
-        ])
-        .previewDisplayName("Email Input")
-
-        CupertinoInputPlatformView_Preview(args: [
-          "text": "Disabled input field",
-          "enabled": false,
-          "borderStyle": "bezel",
-        ])
-        .previewDisplayName("Disabled Input")
-
-        CupertinoInputPlatformView_Preview(args: [
-          "placeholder": "No border input",
-          "borderStyle": "none",
-          "fontSize": 18,
-        ])
-        .previewDisplayName("No Border Input")
-      }
-      .previewLayout(.fixed(width: 350, height: 80))
-      .padding()
-    }
-  }
-#endif
