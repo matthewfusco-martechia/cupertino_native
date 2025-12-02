@@ -51,6 +51,12 @@ public class CupertinoNativePlugin: NSObject, FlutterPlugin {
     switch call.method {
     case "getPlatformVersion":
       result("iOS " + UIDevice.current.systemVersion)
+    case "dismissKeyboard":
+      // End editing on the entire application window - dismisses any keyboard
+      DispatchQueue.main.async {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+      }
+      result(nil)
     default:
       result(FlutterMethodNotImplemented)
     }

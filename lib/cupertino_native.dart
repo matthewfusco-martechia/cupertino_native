@@ -16,13 +16,29 @@ export 'components/navigation_bar.dart';
 export 'components/glass_effect_container.dart';
 export 'components/liquid_glass_text_field.dart';
 
+import 'package:flutter/services.dart';
 import 'cupertino_native_platform_interface.dart';
 
 /// Top-level facade for simple plugin interactions.
 class CupertinoNative {
+  static const MethodChannel _channel = MethodChannel('cupertino_native');
+
   /// Returns a user-friendly platform version string supplied by the
   /// platform implementation.
   Future<String?> getPlatformVersion() {
     return CupertinoNativePlatform.instance.getPlatformVersion();
+  }
+
+  /// Dismisses the keyboard by ending editing on the native iOS side.
+  /// Call this when tapping outside a text field to hide the keyboard.
+  static Future<void> dismissKeyboard() async {
+    try {
+      await _channel.invokeMethod('dismissKeyboard');
+    } catch (_) {
+      // Fallback to Flutter method if native fails
+      try {
+        await SystemChannels.textInput.invokeMethod('TextInput.hide');
+      } catch (_) {}
+    }
   }
 }
