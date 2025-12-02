@@ -107,7 +107,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
 
   double _calculateMaxHeight() {
     const lineHeight = 17.0 * 1.2; // fontSize * line height multiplier
-    const verticalPadding = 28.0; // 14 top + 14 bottom
+    const verticalPadding = 16.0; // 8 top + 8 bottom (matches iOS textContainerInset)
     return lineHeight * widget.maxLines + verticalPadding;
   }
 
@@ -134,24 +134,19 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
             glassStyle: CNGlassStyle.regular,
             cornerRadius: effectiveCornerRadius,
             child: Row(
-              crossAxisAlignment: currentHeight > widget.height
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.center,
+              // Always stretch to fill, let each child manage its own alignment
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Text Input
+                // Text Input - fills the available space
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.only(
-                      left: 16.0,
-                      right: 4.0,
-                      bottom: currentHeight > widget.height ? 8.0 : 0.0,
-                    ),
+                    padding: const EdgeInsets.only(left: 12.0, right: 4.0),
                     child: CNInput(
                       controller: _controller,
                       placeholder: widget.placeholder,
                       backgroundColor: const Color(0x00000000), // transparent
                       borderStyle: CNInputBorderStyle.none,
-                      minHeight: widget.height - 16, // Account for padding
+                      minHeight: widget.height - 8, // Slight reduction for container padding
                       textColor: widget.isDarkMode
                           ? const Color(0xFFFFFFFF) // white
                           : const Color(0xFF000000), // black
@@ -177,24 +172,29 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                     ),
                   ),
                 ),
-                // Trailing Send Button
-                Padding(
-                  padding: EdgeInsets.only(
-                    right: 8.0,
-                    bottom: currentHeight > widget.height ? 8.0 : 0.0,
-                  ),
-                  child: CNButton.icon(
-                    icon: const CNSymbol(
-                      'arrow.up',
-                      size: 16,
-                      color: Color(0xFFFFFFFF), // white
+                // Trailing Send Button - aligned to bottom when multiline, center otherwise
+                Align(
+                  alignment: currentHeight > widget.height 
+                      ? Alignment.bottomCenter 
+                      : Alignment.center,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: 8.0,
+                      bottom: currentHeight > widget.height ? 8.0 : 0.0,
                     ),
-                    size: 32,
-                    style: CNButtonStyle.prominentGlass,
-                    tint: effectiveTrailingColor,
-                    onPressed: () {
-                      widget.onTrailingPressed?.call();
-                    },
+                    child: CNButton.icon(
+                      icon: const CNSymbol(
+                        'arrow.up',
+                        size: 16,
+                        color: Color(0xFFFFFFFF), // white
+                      ),
+                      size: 32,
+                      style: CNButtonStyle.prominentGlass,
+                      tint: effectiveTrailingColor,
+                      onPressed: () {
+                        widget.onTrailingPressed?.call();
+                      },
+                    ),
                   ),
                 ),
               ],

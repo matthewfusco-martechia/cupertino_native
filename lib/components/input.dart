@@ -159,7 +159,7 @@ class CNInputState extends State<CNInput> {
   double _calculateMaxHeight() {
     // Approximate line height based on font size
     final lineHeight = widget.fontSize * 1.2;
-    const verticalPadding = 28.0; // 14 top + 14 bottom
+    const verticalPadding = 16.0; // 8 top + 8 bottom (matches iOS textContainerInset)
     return lineHeight * widget.maxLines + verticalPadding;
   }
 
@@ -263,14 +263,11 @@ class CNInputState extends State<CNInput> {
       case 'textChanged':
         final text = call.arguments['text'] as String? ?? '';
         if (_controller.text != text) {
-          _controller.value = _controller.value.copyWith(
-            text: text,
-            selection: TextSelection.collapsed(offset: text.length),
-          );
+          // Just update the text, don't change cursor position
+          // The native UITextView manages its own cursor
+          _controller.value = TextEditingValue(text: text);
         }
-        if (widget.onChanged != null) {
-          widget.onChanged!(text);
-        }
+        widget.onChanged?.call(text);
         break;
       case 'focusChanged':
         final focused = call.arguments['focused'] as bool? ?? false;

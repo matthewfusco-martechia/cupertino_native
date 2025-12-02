@@ -60,7 +60,7 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     
     // Calculate height bounds
     let lineHeight = fontSize * 1.2
-    let verticalPadding: CGFloat = 28 // 14 top + 14 bottom
+    let verticalPadding: CGFloat = 16 // 8 top + 8 bottom
     self.minHeight = lineHeight + verticalPadding
     self.maxHeight = lineHeight * CGFloat(maxLines) + verticalPadding
     
@@ -76,7 +76,8 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     textView.isEditable = enabled
     textView.isSelectable = true
     textView.delegate = self
-    textView.textContainerInset = UIEdgeInsets(top: 14, left: 4, bottom: 14, right: 4)
+    // Smaller vertical padding for better centering with icons
+    textView.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 8, right: 4)
     textView.textContainer.lineFragmentPadding = 0
     
     // KEY: Always enable scrolling for multi-line - this is how iMessage works
@@ -142,7 +143,7 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
       
       placeholderLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 4),
       placeholderLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -4),
-      placeholderLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
+      placeholderLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
     ])
     
     setupMethodChannel()
