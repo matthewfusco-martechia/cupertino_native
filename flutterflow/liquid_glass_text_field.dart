@@ -140,6 +140,9 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
           _currentHeight = widget.height;
         });
       }
+      
+      // Dismiss keyboard after submit
+      FocusScope.of(context).unfocus();
     }
   }
 
