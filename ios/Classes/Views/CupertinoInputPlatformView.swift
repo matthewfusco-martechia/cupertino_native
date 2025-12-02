@@ -29,6 +29,7 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     var fontSize: CGFloat = 17.0
     var textColor: UIColor? = nil
     var backgroundColor: UIColor? = nil
+    var cursorColor: UIColor? = nil
     var isSecure: Bool = false
     var keyboardType: String = "default"
     var returnKeyType: String = "default"
@@ -45,6 +46,7 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
       if let fs = dict["fontSize"] as? NSNumber { fontSize = CGFloat(truncating: fs) }
       if let tc = dict["textColor"] as? NSNumber { textColor = Self.colorFromARGB(tc.intValue) }
       if let bg = dict["backgroundColor"] as? NSNumber { backgroundColor = Self.colorFromARGB(bg.intValue) }
+      if let cc = dict["cursorColor"] as? NSNumber { cursorColor = Self.colorFromARGB(cc.intValue) }
       if let secure = dict["isSecure"] as? NSNumber { isSecure = secure.boolValue }
       if let kt = dict["keyboardType"] as? String { keyboardType = kt }
       if let rt = dict["returnKeyType"] as? String { returnKeyType = rt }
@@ -92,6 +94,11 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
       }
     } else {
       textView.backgroundColor = .clear
+    }
+    
+    // Apply cursor color (tintColor controls cursor and selection)
+    if let cc = cursorColor {
+      textView.tintColor = cc
     }
     
     // Apply border style
@@ -272,6 +279,21 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     placeholderLabel.isHidden = !textView.text.isEmpty
     channel.invokeMethod("textChanged", arguments: ["text": textView.text ?? ""])
     notifyHeightChange()
+    
+    // Scroll to cursor position to keep it visible
+    scrollToCursor()
+  }
+  
+  private func scrollToCursor() {
+    guard let selectedRange = textView.selectedTextRange else { return }
+    let cursorRect = textView.caretRect(for: selectedRange.end)
+    
+    // Add some padding to ensure cursor is visible
+    var visibleRect = cursorRect
+    visibleRect.size.height += 8
+    
+    // Scroll to make cursor visible
+    textView.scrollRectToVisible(visibleRect, animated: false)
   }
   
   func textViewDidBeginEditing(_ textView: UITextView) {
@@ -305,7 +327,15 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     guard width > 0 else { return minHeight }
     
     let size = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-    return min(max(size.height, minHeight), maxHeight)
+    let calculatedHeight = min(max(size.height, minHeight), maxHeight)
+    
+    // Enable scrolling when we hit max height, disable otherwise for auto-sizing
+    let shouldScroll = size.height >= maxHeight
+    if textView.isScrollEnabled != shouldScroll {
+      textView.isScrollEnabled = shouldScroll
+    }
+    
+    return calculatedHeight
   }
   
   private func notifyHeightChange() {

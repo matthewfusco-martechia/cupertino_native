@@ -14,6 +14,7 @@ class LiquidGlassTextField extends StatefulWidget {
     this.placeholder,
     this.onSubmitted,
     this.onChanged,
+    this.onFocusChanged,
     this.leading,
     this.trailing,
     this.minHeight = 50.0,
@@ -35,6 +36,9 @@ class LiquidGlassTextField extends StatefulWidget {
 
   /// Called when the text changes.
   final ValueChanged<String>? onChanged;
+
+  /// Called when the focus state changes.
+  final ValueChanged<bool>? onFocusChanged;
 
   /// An optional widget to display before the input field.
   final Widget? leading;
@@ -61,11 +65,12 @@ class LiquidGlassTextField extends StatefulWidget {
   final double? cornerRadius;
 
   @override
-  State<LiquidGlassTextField> createState() => _LiquidGlassTextFieldState();
+  State<LiquidGlassTextField> createState() => LiquidGlassTextFieldState();
 }
 
-class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
+class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   double _currentHeight = 50.0;
+  final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
 
   @override
   void initState() {
@@ -77,6 +82,16 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     const lineHeight = 17.0 * 1.2; // fontSize * line height multiplier
     const verticalPadding = 28.0; // 14 top + 14 bottom
     return lineHeight * widget.maxLines + verticalPadding;
+  }
+
+  /// Unfocuses the text field, dismissing the keyboard.
+  void unfocus() {
+    _inputKey.currentState?.unfocus();
+  }
+
+  /// Focuses the text field, showing the keyboard.
+  void focus() {
+    _inputKey.currentState?.focus();
   }
 
   @override
@@ -114,6 +129,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                   right: widget.trailing == null ? 16.0 : 4.0,
                 ),
                 child: CNInput(
+                  key: _inputKey,
                   controller: widget.controller,
                   placeholder: widget.placeholder,
                   // Use transparent background to show the glass effect underneath
@@ -122,6 +138,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                   minHeight: widget.minHeight,
                   onSubmitted: widget.onSubmitted,
                   onChanged: widget.onChanged,
+                  onFocusChanged: widget.onFocusChanged,
                   // Ensure text is visible on glass
                   textColor: CupertinoColors.label,
                   maxLines: widget.maxLines,

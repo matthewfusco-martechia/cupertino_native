@@ -4,9 +4,18 @@ import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
-// Required package import - add cupertino_native to your pubspec.yaml:
-// dependencies:
-//   cupertino_native: ^latest_version
+// ============================================================================
+// IMPORTANT: You MUST add the cupertino_native package to your FlutterFlow project!
+// 
+// In FlutterFlow:
+// 1. Go to Settings (gear icon) > Project Dependencies
+// 2. Click "Add Dependency"
+// 3. Enter: cupertino_native
+// 4. Enter version: ^1.0.0 (or latest)
+// 5. Click "Add" and wait for rebuild
+//
+// Without this package, the widget will NOT compile!
+// ============================================================================
 import 'package:cupertino_native/cupertino_native.dart';
 
 /// A liquid glass text field widget for FlutterFlow.
@@ -25,8 +34,10 @@ import 'package:cupertino_native/cupertino_native.dart';
 /// - [placeholder]: Placeholder text when empty
 /// - [isDarkMode]: Toggle between dark and light mode
 /// - [trailingIconColor]: Color of the send button
+/// - [cursorColor]: Color of the text cursor
 /// - [onTrailingPressed]: Action when send button is pressed
 /// - [onTextChanged]: Action when text changes
+/// - [onFocusChanged]: Action when focus changes
 class LiquidGlassTextField extends StatefulWidget {
   const LiquidGlassTextField({
     super.key,
@@ -35,8 +46,10 @@ class LiquidGlassTextField extends StatefulWidget {
     this.placeholder = 'Message',
     this.isDarkMode = false,
     this.trailingIconColor,
+    this.cursorColor,
     this.onTrailingPressed,
     this.onTextChanged,
+    this.onFocusChanged,
     this.maxLines = 10,
     this.cornerRadius,
   });
@@ -56,11 +69,17 @@ class LiquidGlassTextField extends StatefulWidget {
   /// The color of the trailing send button icon.
   final Color? trailingIconColor;
 
+  /// The color of the text cursor and selection handles.
+  final Color? cursorColor;
+
   /// Action to perform when the trailing send button is pressed.
   final Future<dynamic> Function()? onTrailingPressed;
 
   /// Action to perform when the text changes.
   final Future<dynamic> Function(String text)? onTextChanged;
+
+  /// Action to perform when focus changes.
+  final Future<dynamic> Function(bool focused)? onFocusChanged;
 
   /// Maximum number of lines before scrolling.
   final int maxLines;
@@ -74,6 +93,7 @@ class LiquidGlassTextField extends StatefulWidget {
 
 class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   final TextEditingController _controller = TextEditingController();
+  final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
   double _currentHeight = 50.0;
 
   @override
@@ -92,6 +112,11 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     const lineHeight = 17.0 * 1.2; // fontSize * line height multiplier
     const verticalPadding = 28.0; // 14 top + 14 bottom
     return lineHeight * widget.maxLines + verticalPadding;
+  }
+
+  /// Call this method to unfocus the text field and dismiss the keyboard.
+  void unfocus() {
+    _inputKey.currentState?.unfocus();
   }
 
   @override
@@ -129,6 +154,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                       bottom: _currentHeight > widget.height ? 8.0 : 0.0,
                     ),
                     child: CNInput(
+                      key: _inputKey,
                       controller: _controller,
                       placeholder: widget.placeholder,
                       backgroundColor: CupertinoColors.transparent,
@@ -137,11 +163,15 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                       textColor: widget.isDarkMode
                           ? CupertinoColors.white
                           : CupertinoColors.black,
+                      cursorColor: widget.cursorColor,
                       maxLines: widget.maxLines,
                       keyboardType: TextInputType.multiline,
                       textInputAction: TextInputAction.newline,
                       onChanged: (text) {
                         widget.onTextChanged?.call(text);
+                      },
+                      onFocusChanged: (focused) {
+                        widget.onFocusChanged?.call(focused);
                       },
                       onHeightChanged: (height) {
                         if (mounted) {

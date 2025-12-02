@@ -20,6 +20,7 @@ class CNInput extends StatefulWidget {
     this.fontSize = 17.0,
     this.textColor,
     this.backgroundColor,
+    this.cursorColor,
     this.isSecure = false,
     this.keyboardType = TextInputType.text,
     this.textInputAction = TextInputAction.done,
@@ -52,6 +53,9 @@ class CNInput extends StatefulWidget {
 
   /// The background color of the input field.
   final Color? backgroundColor;
+
+  /// The color of the cursor and selection handles.
+  final Color? cursorColor;
 
   /// Whether the input field obscures the text being entered.
   final bool isSecure;
@@ -93,10 +97,10 @@ class CNInput extends StatefulWidget {
   final ValueChanged<double>? onHeightChanged;
 
   @override
-  State<CNInput> createState() => _CNInputState();
+  State<CNInput> createState() => CNInputState();
 }
 
-class _CNInputState extends State<CNInput> {
+class CNInputState extends State<CNInput> {
   MethodChannel? _channel;
   bool? _lastIsDark;
   String? _lastText;
@@ -105,6 +109,16 @@ class _CNInputState extends State<CNInput> {
   double _currentHeight = 44.0;
 
   bool get _isDark => CupertinoTheme.of(context).brightness == Brightness.dark;
+
+  /// Unfocuses the input field, dismissing the keyboard.
+  void unfocus() {
+    _channel?.invokeMethod('unfocus');
+  }
+
+  /// Focuses the input field, showing the keyboard.
+  void focus() {
+    _channel?.invokeMethod('focus');
+  }
 
   @override
   void initState() {
@@ -193,6 +207,8 @@ class _CNInputState extends State<CNInput> {
         'textColor': resolveColorToArgb(widget.textColor, context),
       if (widget.backgroundColor != null)
         'backgroundColor': resolveColorToArgb(widget.backgroundColor, context),
+      if (widget.cursorColor != null)
+        'cursorColor': resolveColorToArgb(widget.cursorColor, context),
       'isSecure': widget.isSecure,
       'keyboardType': _keyboardTypeToString(widget.keyboardType),
       'returnKeyType': _textInputActionToString(widget.textInputAction),
