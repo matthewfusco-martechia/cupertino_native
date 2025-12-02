@@ -23,6 +23,13 @@ import 'package:flutter/cupertino.dart';
 //     onTap: () => FocusScope.of(context).unfocus(),
 //     child: YourPageContent(),
 //   )
+//
+// HOW TO USE onSubmit TO ADD TEXT TO PAGE STATE:
+// 1. In FlutterFlow, select this widget
+// 2. Go to Actions > onSubmit
+// 3. Add action: "Update Page State"
+// 4. Select your page state variable (e.g., messages list)
+// 5. Use "Action Output" or the callback parameter to get the submitted text
 // ============================================================================
 import 'package:cupertino_native/cupertino_native.dart';
 
@@ -37,9 +44,10 @@ import 'package:cupertino_native/cupertino_native.dart';
 /// - [placeholder]: Placeholder text when empty
 /// - [isDarkMode]: Toggle between dark and light mode
 /// - [trailingIconColor]: Color of the send button
-/// - [onTrailingPressed]: Action when send button is pressed
+/// - [onSubmit]: Action when send button is pressed - receives the text value!
 /// - [onTextChanged]: Action when text changes
 /// - [onFocusChanged]: Action when focus changes
+/// - [clearOnSubmit]: Whether to clear the text field after submit (default: true)
 class LiquidGlassTextField extends StatefulWidget {
   const LiquidGlassTextField({
     super.key,
@@ -48,11 +56,12 @@ class LiquidGlassTextField extends StatefulWidget {
     this.placeholder = 'Message',
     this.isDarkMode = false,
     this.trailingIconColor,
-    this.onTrailingPressed,
+    this.onSubmit,
     this.onTextChanged,
     this.onFocusChanged,
     this.maxLines = 10,
     this.cornerRadius,
+    this.clearOnSubmit = true,
   });
 
   /// The width of the widget (required by FlutterFlow).
@@ -70,8 +79,10 @@ class LiquidGlassTextField extends StatefulWidget {
   /// The color of the trailing send button icon.
   final Color? trailingIconColor;
 
-  /// Action to perform when the trailing send button is pressed.
-  final Future<dynamic> Function()? onTrailingPressed;
+  /// Action to perform when the send button is pressed.
+  /// Receives the current text value as a parameter.
+  /// Use this to append the text to your page state!
+  final Future<dynamic> Function(String text)? onSubmit;
 
   /// Action to perform when the text changes.
   final Future<dynamic> Function(String text)? onTextChanged;
@@ -85,6 +96,9 @@ class LiquidGlassTextField extends StatefulWidget {
   /// Corner radius for the glass container. Defaults to height / 2 (pill shape).
   final double? cornerRadius;
 
+  /// Whether to clear the text field after submit. Defaults to true.
+  final bool clearOnSubmit;
+
   @override
   State<LiquidGlassTextField> createState() => _LiquidGlassTextFieldState();
 }
@@ -92,6 +106,7 @@ class LiquidGlassTextField extends StatefulWidget {
 class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   final TextEditingController _controller = TextEditingController();
   double _currentHeight = 50.0;
+  String _currentText = '';
 
   @override
   void initState() {
@@ -109,6 +124,23 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     const lineHeight = 17.0 * 1.2; // fontSize * line height multiplier
     const verticalPadding = 20.0; // 8 top + 8 bottom + 4 buffer for text rendering
     return lineHeight * widget.maxLines + verticalPadding;
+  }
+
+  void _handleSubmit() {
+    final text = _currentText;
+    if (text.isNotEmpty) {
+      // Call the onSubmit callback with the text
+      widget.onSubmit?.call(text);
+      
+      // Clear the text field if clearOnSubmit is true
+      if (widget.clearOnSubmit) {
+        _controller.clear();
+        setState(() {
+          _currentText = '';
+          _currentHeight = widget.height;
+        });
+      }
+    }
   }
 
   @override
@@ -154,6 +186,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                       keyboardType: TextInputType.multiline,
                       textInputAction: TextInputAction.newline,
                       onChanged: (text) {
+                        _currentText = text;
                         widget.onTextChanged?.call(text);
                       },
                       onFocusChanged: (focused) {
@@ -191,9 +224,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                       size: 32,
                       style: CNButtonStyle.prominentGlass,
                       tint: effectiveTrailingColor,
-                      onPressed: () {
-                        widget.onTrailingPressed?.call();
-                      },
+                      onPressed: _handleSubmit,
                     ),
                   ),
                 ),
@@ -206,15 +237,17 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   }
 
   /// Get the current text value.
-  String get text => _controller.text;
+  String get text => _currentText;
 
   /// Set the text value programmatically.
   set text(String value) {
     _controller.text = value;
+    _currentText = value;
   }
 
   /// Clear the text field.
   void clear() {
     _controller.clear();
+    _currentText = '';
   }
 }
