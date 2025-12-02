@@ -9,6 +9,8 @@ import 'demos/popup_menu_button.dart';
 import 'demos/button.dart';
 import 'demos/navigation_bar.dart';
 import 'demos/glass_effect_container.dart';
+import 'demos/input.dart';
+import 'demos/liquid_glass_text_field.dart';
 
 void main() {
   runApp(const MyApp());
@@ -197,6 +199,32 @@ class HomePage extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     CupertinoPageRoute(builder: (_) => const ButtonDemoPage()),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Input'),
+                leading: CNIcon(
+                  symbol: CNSymbol('text.cursor', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(builder: (_) => const InputDemo()),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Liquid Glass Input'),
+                leading: CNIcon(
+                  symbol: CNSymbol('drop.fill', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassTextFieldDemoPage(),
+                    ),
                   );
                 },
               ),

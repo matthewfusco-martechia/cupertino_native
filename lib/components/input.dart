@@ -7,8 +7,9 @@ import '../channel/params.dart';
 
 /// A Cupertino-native text input field.
 ///
-/// Embeds a native UITextField/NSTextField for authentic visuals and behavior on
+/// Embeds a native UITextView for authentic visuals and behavior on
 /// iOS and macOS. Falls back to [CupertinoTextField] on other platforms.
+/// Supports multiline input when [maxLines] > 1.
 class CNInput extends StatefulWidget {
   /// Creates a native text input field.
   const CNInput({
@@ -26,10 +27,12 @@ class CNInput extends StatefulWidget {
     this.textContentType,
     this.enabled = true,
     this.clearButtonMode = CNInputClearButtonMode.never,
-    this.height = 44.0,
+    this.minHeight = 44.0,
+    this.maxLines = 1,
     this.onChanged,
     this.onSubmitted,
     this.onFocusChanged,
+    this.onHeightChanged,
   });
 
   /// Controls the text being edited.
@@ -71,8 +74,11 @@ class CNInput extends StatefulWidget {
   /// Controls when the clear button appears.
   final CNInputClearButtonMode clearButtonMode;
 
-  /// The height of the input field.
-  final double height;
+  /// The minimum height of the input field.
+  final double minHeight;
+
+  /// The maximum number of lines to show at one time.
+  final int maxLines;
 
   /// Called when the user changes the text in the field.
   final ValueChanged<String>? onChanged;
@@ -82,6 +88,9 @@ class CNInput extends StatefulWidget {
 
   /// Called when the input field gains or loses focus.
   final ValueChanged<bool>? onFocusChanged;
+
+  /// Called when the content height changes (for multiline inputs).
+  final ValueChanged<double>? onHeightChanged;
 
   @override
   State<CNInput> createState() => _CNInputState();
@@ -93,6 +102,7 @@ class _CNInputState extends State<CNInput> {
   String? _lastText;
   String? _lastPlaceholder;
   late TextEditingController _controller;
+  double _currentHeight = 44.0;
 
   bool get _isDark => CupertinoTheme.of(context).brightness == Brightness.dark;
 
@@ -102,6 +112,7 @@ class _CNInputState extends State<CNInput> {
     _controller = widget.controller ?? TextEditingController();
     _lastText = _controller.text;
     _lastPlaceholder = widget.placeholder;
+    _currentHeight = widget.minHeight;
   }
 
   @override
@@ -131,13 +142,23 @@ class _CNInputState extends State<CNInput> {
     _syncBrightnessIfNeeded();
   }
 
+  double _calculateMaxHeight() {
+    // Approximate line height based on font size
+    final lineHeight = widget.fontSize * 1.2;
+    const verticalPadding = 28.0; // 14 top + 14 bottom
+    return lineHeight * widget.maxLines + verticalPadding;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
       // Fallback Flutter implementation
-      return SizedBox(
-        height: widget.height,
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: widget.minHeight,
+          maxHeight: _calculateMaxHeight(),
+        ),
         child: CupertinoTextField(
           controller: _controller,
           placeholder: widget.placeholder,
@@ -146,6 +167,7 @@ class _CNInputState extends State<CNInput> {
           textInputAction: widget.textInputAction,
           autocorrect: widget.autocorrect,
           enabled: widget.enabled,
+          maxLines: widget.maxLines,
           style: TextStyle(fontSize: widget.fontSize, color: widget.textColor),
           decoration: BoxDecoration(
             color: widget.backgroundColor,
@@ -179,6 +201,7 @@ class _CNInputState extends State<CNInput> {
         'textContentType': widget.textContentType,
       'enabled': widget.enabled,
       'clearButtonMode': widget.clearButtonMode.name,
+      'maxLines': widget.maxLines,
       'isDark': _isDark,
     };
 
@@ -202,7 +225,15 @@ class _CNInputState extends State<CNInput> {
             },
           );
 
-    return SizedBox(height: widget.height, child: platformView);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 100),
+      constraints: BoxConstraints(
+        minHeight: widget.minHeight,
+        maxHeight: _calculateMaxHeight(),
+      ),
+      height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+      child: platformView,
+    );
   }
 
   void _onCreated(int id) {
@@ -238,6 +269,15 @@ class _CNInputState extends State<CNInput> {
         final text = call.arguments['text'] as String? ?? '';
         if (widget.onSubmitted != null) {
           widget.onSubmitted!(text);
+        }
+        break;
+      case 'heightChanged':
+        final height = (call.arguments['height'] as num?)?.toDouble() ?? widget.minHeight;
+        if (mounted) {
+          setState(() {
+            _currentHeight = height.clamp(widget.minHeight, _calculateMaxHeight());
+          });
+          widget.onHeightChanged?.call(_currentHeight);
         }
         break;
     }

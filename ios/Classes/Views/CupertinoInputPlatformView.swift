@@ -1,18 +1,27 @@
 import Flutter
 import UIKit
 
-class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextFieldDelegate {
+class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDelegate {
   private let channel: FlutterMethodChannel
   private let container: UIView
-  private let textField: UITextField
+  private let textView: UITextView
+  private let placeholderLabel: UILabel
   private var isEnabled: Bool = true
-  private var currentBorderStyle: UITextField.BorderStyle = .roundedRect
+  private var maxLines: Int = 1
+  private var fontSize: CGFloat = 17.0
+  private var placeholderText: String?
+  private var hasNotifiedInitialHeight: Bool = false
+  
+  deinit {
+    container.removeObserver(self, forKeyPath: "bounds")
+  }
   
   init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
     self.channel = FlutterMethodChannel(
       name: "CupertinoNativeInput_\(viewId)", binaryMessenger: messenger)
     self.container = UIView(frame: frame)
-    self.textField = UITextField()
+    self.textView = UITextView()
+    self.placeholderLabel = UILabel()
     
     var placeholder: String? = nil
     var text: String? = nil
@@ -27,7 +36,7 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextFieldDele
     var textContentType: String? = nil
     var isDark: Bool = false
     var enabled: Bool = true
-    var clearButtonMode: String = "never"
+    var maxLines: Int = 1
     
     if let dict = args as? [String: Any] {
       if let p = dict["placeholder"] as? String { placeholder = p }
@@ -43,76 +52,123 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextFieldDele
       if let tct = dict["textContentType"] as? String { textContentType = tct }
       if let dark = dict["isDark"] as? NSNumber { isDark = dark.boolValue }
       if let e = dict["enabled"] as? NSNumber { enabled = e.boolValue }
-      if let cbm = dict["clearButtonMode"] as? String { clearButtonMode = cbm }
+      if let ml = dict["maxLines"] as? NSNumber { maxLines = ml.intValue }
     }
+    
+    self.maxLines = maxLines
+    self.fontSize = fontSize
+    self.placeholderText = placeholder
     
     super.init()
     
     container.backgroundColor = .clear
-    if #available(iOS 13.0, *) {
-      container.overrideUserInterfaceStyle = isDark ? .dark : .light
+    
+    // Configure text view
+    textView.translatesAutoresizingMaskIntoConstraints = false
+    textView.text = text
+    textView.font = UIFont.systemFont(ofSize: fontSize)
+    textView.isEditable = enabled
+    textView.isSelectable = true
+    textView.delegate = self
+    textView.isScrollEnabled = false // Allow auto-sizing
+    textView.textContainerInset = UIEdgeInsets(top: 14, left: 4, bottom: 14, right: 4)
+    textView.textContainer.lineFragmentPadding = 0
+    
+    // Apply colors
+    if let tc = textColor {
+      textView.textColor = tc
+    } else if #available(iOS 13.0, *) {
+      textView.textColor = .label
     }
     
-    // Configure text field
-    textField.translatesAutoresizingMaskIntoConstraints = false
-    textField.placeholder = placeholder
-    textField.text = text
-    textField.font = UIFont.systemFont(ofSize: fontSize)
-    textField.isSecureTextEntry = isSecure
-    textField.isEnabled = enabled
-    textField.delegate = self
+    if let bg = backgroundColor {
+      // Check if color is transparent (alpha == 0)
+      var alpha: CGFloat = 0
+      bg.getWhite(nil, alpha: &alpha)
+      if alpha == 0 {
+        textView.backgroundColor = .clear
+      } else {
+        textView.backgroundColor = bg
+      }
+    } else {
+      textView.backgroundColor = .clear
+    }
     
     // Apply border style
     switch borderStyle {
     case "none":
-      textField.borderStyle = .none
+      textView.layer.borderWidth = 0
+      textView.layer.cornerRadius = 0
     case "line":
-      textField.borderStyle = .line
+      if #available(iOS 13.0, *) {
+        textView.layer.borderColor = UIColor.separator.cgColor
+      } else {
+        textView.layer.borderColor = UIColor.lightGray.cgColor
+      }
+      textView.layer.borderWidth = 1
+      textView.layer.cornerRadius = 0
     case "bezel":
-      textField.borderStyle = .bezel
+      if #available(iOS 13.0, *) {
+        textView.layer.borderColor = UIColor.separator.cgColor
+      } else {
+        textView.layer.borderColor = UIColor.lightGray.cgColor
+      }
+      textView.layer.borderWidth = 1
+      textView.layer.cornerRadius = 4
     case "roundedRect":
-      textField.borderStyle = .roundedRect
+      if #available(iOS 13.0, *) {
+        textView.layer.borderColor = UIColor.separator.cgColor
+      } else {
+        textView.layer.borderColor = UIColor.lightGray.cgColor
+      }
+      textView.layer.borderWidth = 0.5
+      textView.layer.cornerRadius = 8
     default:
-      textField.borderStyle = .roundedRect
-    }
-    currentBorderStyle = textField.borderStyle
-    
-    // Apply colors
-    if let tc = textColor {
-      textField.textColor = tc
-    } else if #available(iOS 13.0, *) {
-      textField.textColor = .label
-    }
-    
-    if let bg = backgroundColor {
-      textField.backgroundColor = bg
-    } else if #available(iOS 13.0, *) {
-      textField.backgroundColor = .systemBackground
+      textView.layer.borderWidth = 0.5
+      textView.layer.cornerRadius = 8
     }
     
     // Configure keyboard
-    textField.keyboardType = Self.keyboardTypeFromString(keyboardType)
-    textField.returnKeyType = Self.returnKeyTypeFromString(returnKeyType)
-    textField.autocorrectionType = Self.autocorrectionTypeFromString(autocorrectionType)
-    textField.clearButtonMode = Self.clearButtonModeFromString(clearButtonMode)
+    textView.keyboardType = Self.keyboardTypeFromString(keyboardType)
+    textView.returnKeyType = Self.returnKeyTypeFromString(returnKeyType)
+    textView.autocorrectionType = Self.autocorrectionTypeFromString(autocorrectionType)
+    textView.isSecureTextEntry = isSecure
     
     // Set text content type if available
     if #available(iOS 10.0, *), let tct = textContentType {
-      textField.textContentType = Self.textContentTypeFromString(tct)
+      textView.textContentType = Self.textContentTypeFromString(tct)
     }
     
     self.isEnabled = enabled
     
-    container.addSubview(textField)
+    // Configure placeholder label
+    placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
+    placeholderLabel.text = placeholder
+    placeholderLabel.font = UIFont.systemFont(ofSize: fontSize)
+    placeholderLabel.numberOfLines = 1
+    if #available(iOS 13.0, *) {
+      placeholderLabel.textColor = .placeholderText
+    } else {
+      placeholderLabel.textColor = .lightGray
+    }
+    placeholderLabel.isHidden = !(text?.isEmpty ?? true)
+    
+    container.addSubview(textView)
+    textView.addSubview(placeholderLabel)
+    
     NSLayoutConstraint.activate([
-      textField.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-      textField.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-      textField.topAnchor.constraint(equalTo: container.topAnchor),
-      textField.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+      textView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+      textView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+      textView.topAnchor.constraint(equalTo: container.topAnchor),
+      textView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+      
+      placeholderLabel.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 4),
+      placeholderLabel.trailingAnchor.constraint(equalTo: textView.trailingAnchor, constant: -4),
+      placeholderLabel.topAnchor.constraint(equalTo: textView.topAnchor, constant: 14),
     ])
     
-    // Add target for text changes
-    textField.addTarget(self, action: #selector(textFieldDidChange), for: .editingChanged)
+    // Observe bounds changes to recalculate height
+    container.addObserver(self, forKeyPath: "bounds", options: [.new], context: nil)
     
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self = self else {
@@ -122,16 +178,19 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextFieldDele
       switch call.method {
       case "setText":
         if let args = call.arguments as? [String: Any], let text = args["text"] as? String {
-          self.textField.text = text
+          self.textView.text = text
+          self.placeholderLabel.isHidden = !text.isEmpty
+          self.notifyHeightChange()
           result(nil)
         } else {
           result(FlutterError(code: "bad_args", message: "Missing text", details: nil))
         }
       case "getText":
-        result(self.textField.text ?? "")
+        result(self.textView.text ?? "")
       case "setPlaceholder":
         if let args = call.arguments as? [String: Any], let placeholder = args["placeholder"] as? String {
-          self.textField.placeholder = placeholder
+          self.placeholderLabel.text = placeholder
+          self.placeholderText = placeholder
           result(nil)
         } else {
           result(FlutterError(code: "bad_args", message: "Missing placeholder", details: nil))
@@ -139,58 +198,65 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextFieldDele
       case "setEnabled":
         if let args = call.arguments as? [String: Any], let enabled = args["enabled"] as? NSNumber {
           self.isEnabled = enabled.boolValue
-          self.textField.isEnabled = self.isEnabled
+          self.textView.isEditable = self.isEnabled
           result(nil)
         } else {
           result(FlutterError(code: "bad_args", message: "Missing enabled", details: nil))
         }
       case "focus":
         DispatchQueue.main.async {
-          self.textField.becomeFirstResponder()
+          self.textView.becomeFirstResponder()
         }
         result(nil)
       case "unfocus":
         DispatchQueue.main.async {
-          self.textField.resignFirstResponder()
+          self.textView.resignFirstResponder()
         }
         result(nil)
       case "setBorderStyle":
         if let args = call.arguments as? [String: Any], let style = args["borderStyle"] as? String {
           switch style {
           case "none":
-            self.textField.borderStyle = .none
+            self.textView.layer.borderWidth = 0
+            self.textView.layer.cornerRadius = 0
           case "line":
-            self.textField.borderStyle = .line
+            if #available(iOS 13.0, *) {
+              self.textView.layer.borderColor = UIColor.separator.cgColor
+            }
+            self.textView.layer.borderWidth = 1
+            self.textView.layer.cornerRadius = 0
           case "bezel":
-            self.textField.borderStyle = .bezel
+            if #available(iOS 13.0, *) {
+              self.textView.layer.borderColor = UIColor.separator.cgColor
+            }
+            self.textView.layer.borderWidth = 1
+            self.textView.layer.cornerRadius = 4
           case "roundedRect":
-            self.textField.borderStyle = .roundedRect
+            if #available(iOS 13.0, *) {
+              self.textView.layer.borderColor = UIColor.separator.cgColor
+            }
+            self.textView.layer.borderWidth = 0.5
+            self.textView.layer.cornerRadius = 8
           default:
-            self.textField.borderStyle = .roundedRect
+            break
           }
-          self.currentBorderStyle = self.textField.borderStyle
           result(nil)
         } else {
           result(FlutterError(code: "bad_args", message: "Missing borderStyle", details: nil))
         }
       case "setSecure":
         if let args = call.arguments as? [String: Any], let secure = args["isSecure"] as? NSNumber {
-          self.textField.isSecureTextEntry = secure.boolValue
+          self.textView.isSecureTextEntry = secure.boolValue
           result(nil)
         } else {
           result(FlutterError(code: "bad_args", message: "Missing isSecure", details: nil))
         }
       case "setBrightness":
-        if let args = call.arguments as? [String: Any],
-          let isDark = (args["isDark"] as? NSNumber)?.boolValue
-        {
-          if #available(iOS 13.0, *) {
-            self.container.overrideUserInterfaceStyle = isDark ? .dark : .light
-          }
-          result(nil)
-        } else {
-          result(FlutterError(code: "bad_args", message: "Missing isDark", details: nil))
-        }
+        // No longer override user interface style - let the system handle it
+        result(nil)
+      case "getContentHeight":
+        let height = self.calculateContentHeight()
+        result(height)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -199,25 +265,67 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextFieldDele
   
   func view() -> UIView { container }
   
-  @objc private func textFieldDidChange() {
+  // MARK: - UITextViewDelegate
+  
+  func textViewDidChange(_ textView: UITextView) {
     guard isEnabled else { return }
-    channel.invokeMethod("textChanged", arguments: ["text": textField.text ?? ""])
+    placeholderLabel.isHidden = !textView.text.isEmpty
+    channel.invokeMethod("textChanged", arguments: ["text": textView.text ?? ""])
+    notifyHeightChange()
   }
   
-  // MARK: - UITextFieldDelegate
-  
-  func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool {
+  func textViewDidBeginEditing(_ textView: UITextView) {
     channel.invokeMethod("focusChanged", arguments: ["focused": true])
-    return isEnabled
   }
   
-  func textFieldDidEndEditing(_ textField: UITextField) {
+  func textViewDidEndEditing(_ textView: UITextView) {
     channel.invokeMethod("focusChanged", arguments: ["focused": false])
   }
   
-  func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-    channel.invokeMethod("submitted", arguments: ["text": textField.text ?? ""])
+  func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+    // Handle return key for single line mode
+    if maxLines == 1 && text == "\n" {
+      channel.invokeMethod("submitted", arguments: ["text": textView.text ?? ""])
+      textView.resignFirstResponder()
+      return false
+    }
     return true
+  }
+  
+  // MARK: - Height Calculation
+  
+  private func calculateContentHeight() -> CGFloat {
+    let lineHeight = fontSize * 1.2
+    let verticalPadding: CGFloat = 28 // 14 top + 14 bottom
+    let minHeight = lineHeight + verticalPadding
+    let maxHeight = lineHeight * CGFloat(maxLines) + verticalPadding
+    
+    // Get the width for calculation - use container width if available
+    let width = textView.bounds.width > 0 ? textView.bounds.width : container.bounds.width
+    guard width > 0 else { return minHeight }
+    
+    let size = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
+    return min(max(size.height, minHeight), maxHeight)
+  }
+  
+  private func notifyHeightChange() {
+    // Delay to ensure layout is complete
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self else { return }
+      let height = self.calculateContentHeight()
+      self.channel.invokeMethod("heightChanged", arguments: ["height": height])
+    }
+  }
+  
+  // Called when the view is laid out
+  override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+    if keyPath == "bounds" {
+      // Only notify once on initial layout, and then on text changes
+      if !hasNotifiedInitialHeight && container.bounds.width > 0 {
+        hasNotifiedInitialHeight = true
+        notifyHeightChange()
+      }
+    }
   }
   
   // MARK: - Helper Methods
@@ -271,16 +379,6 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextFieldDele
     case "no": return .no
     case "yes": return .yes
     default: return .default
-    }
-  }
-  
-  private static func clearButtonModeFromString(_ mode: String) -> UITextField.ViewMode {
-    switch mode {
-    case "never": return .never
-    case "whileEditing": return .whileEditing
-    case "unlessEditing": return .unlessEditing
-    case "always": return .always
-    default: return .never
     }
   }
   
@@ -397,7 +495,6 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextFieldDele
           "borderStyle": "roundedRect",
           "keyboardType": "webSearch",
           "returnKeyType": "search",
-          "clearButtonMode": "whileEditing",
         ])
         .previewDisplayName("Search Input")
 

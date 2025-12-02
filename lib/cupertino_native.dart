@@ -14,6 +14,7 @@ export 'components/button.dart';
 export 'components/input.dart';
 export 'components/navigation_bar.dart';
 export 'components/glass_effect_container.dart';
+export 'components/liquid_glass_text_field.dart';
 
 import 'cupertino_native_platform_interface.dart';
 

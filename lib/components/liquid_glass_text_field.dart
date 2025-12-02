@@ -1,0 +1,154 @@
+import 'package:flutter/cupertino.dart';
+import 'package:cupertino_native/cupertino_native.dart';
+
+/// A text field with a liquid glass effect background.
+///
+/// This widget combines [CNGlassEffectContainer] and [CNInput] to create
+/// a modern, translucent input field similar to those found in iOS system apps.
+/// Supports multiline input with dynamic height expansion.
+class LiquidGlassTextField extends StatefulWidget {
+  /// Creates a liquid glass text field.
+  const LiquidGlassTextField({
+    super.key,
+    this.controller,
+    this.placeholder,
+    this.onSubmitted,
+    this.onChanged,
+    this.leading,
+    this.trailing,
+    this.minHeight = 50.0,
+    this.width,
+    this.glassStyle = CNGlassStyle.regular,
+    this.tint,
+    this.maxLines = 10,
+    this.cornerRadius,
+  });
+
+  /// Controls the text being edited.
+  final TextEditingController? controller;
+
+  /// Text that appears when the field is empty.
+  final String? placeholder;
+
+  /// Called when the user submits the text (e.g. presses return).
+  final ValueChanged<String>? onSubmitted;
+
+  /// Called when the text changes.
+  final ValueChanged<String>? onChanged;
+
+  /// An optional widget to display before the input field.
+  final Widget? leading;
+
+  /// An optional widget to display after the input field.
+  final Widget? trailing;
+
+  /// The minimum height of the text field.
+  final double minHeight;
+
+  /// The width of the text field.
+  final double? width;
+
+  /// The style of the glass effect.
+  final CNGlassStyle glassStyle;
+
+  /// Optional tint color for the glass effect.
+  final Color? tint;
+
+  /// The maximum number of lines to show at one time.
+  final int maxLines;
+
+  /// Corner radius for the glass container. Defaults to minHeight / 2 (pill shape).
+  final double? cornerRadius;
+
+  @override
+  State<LiquidGlassTextField> createState() => _LiquidGlassTextFieldState();
+}
+
+class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
+  double _currentHeight = 50.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentHeight = widget.minHeight;
+  }
+
+  double _calculateMaxHeight() {
+    const lineHeight = 17.0 * 1.2; // fontSize * line height multiplier
+    const verticalPadding = 28.0; // 14 top + 14 bottom
+    return lineHeight * widget.maxLines + verticalPadding;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveCornerRadius = widget.cornerRadius ?? widget.minHeight / 2;
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 100),
+      height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+      width: widget.width ?? double.infinity,
+      child: CNGlassEffectContainer(
+        height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+        width: widget.width ?? double.infinity,
+        glassStyle: widget.glassStyle,
+        tint: widget.tint,
+        cornerRadius: effectiveCornerRadius,
+        child: Row(
+          crossAxisAlignment: _currentHeight > widget.minHeight 
+              ? CrossAxisAlignment.end 
+              : CrossAxisAlignment.center,
+          children: [
+            if (widget.leading != null) ...[
+              Padding(
+                padding: EdgeInsets.only(
+                  left: 8.0,
+                  bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
+                ),
+                child: widget.leading!,
+              ),
+            ],
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: widget.leading == null ? 16.0 : 4.0,
+                  right: widget.trailing == null ? 16.0 : 4.0,
+                ),
+                child: CNInput(
+                  controller: widget.controller,
+                  placeholder: widget.placeholder,
+                  // Use transparent background to show the glass effect underneath
+                  backgroundColor: CupertinoColors.transparent,
+                  borderStyle: CNInputBorderStyle.none,
+                  minHeight: widget.minHeight,
+                  onSubmitted: widget.onSubmitted,
+                  onChanged: widget.onChanged,
+                  // Ensure text is visible on glass
+                  textColor: CupertinoColors.label,
+                  maxLines: widget.maxLines,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
+                  onHeightChanged: (height) {
+                    if (mounted) {
+                      setState(() {
+                        _currentHeight = height.clamp(widget.minHeight, _calculateMaxHeight());
+                      });
+                    }
+                  },
+                ),
+              ),
+            ),
+            if (widget.trailing != null) ...[
+              Padding(
+                padding: EdgeInsets.only(
+                  right: 8.0,
+                  bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
+                ),
+                child: widget.trailing!,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -145,6 +145,18 @@ class _InputDemoState extends State<InputDemo> {
                 enabled: false,
                 borderStyle: CNInputBorderStyle.roundedRect,
               ),
+              const SizedBox(height: 20),
+
+              // Multiline input
+              const Text('Multiline Input:', style: TextStyle(fontSize: 18)),
+              const SizedBox(height: 8),
+              CNInput(
+                placeholder: 'Type multiple lines here...',
+                borderStyle: CNInputBorderStyle.roundedRect,
+                maxLines: 5,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+              ),
             ],
           ),
         ),
