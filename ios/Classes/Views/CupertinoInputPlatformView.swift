@@ -307,14 +307,36 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     rectToShow.size.height += 24 // Add padding below cursor for better visibility
     rectToShow.origin.y = max(0, rectToShow.origin.y)
     
-    // Always try to scroll to cursor - UITextView will handle if scroll is not needed
-    if textView.isScrollEnabled {
+    // Check if cursor is outside visible bounds
+    let visibleHeight = container.bounds.height
+    let cursorBottom = cursorRect.origin.y + cursorRect.size.height
+    
+    // If cursor is below visible area, we need to scroll even if scroll is "disabled"
+    if cursorBottom > visibleHeight || textView.isScrollEnabled {
+      // Temporarily enable scroll to allow scrolling to cursor
+      let wasScrollEnabled = textView.isScrollEnabled
+      textView.isScrollEnabled = true
+      
       // Use scrollRangeToVisible for more reliable scrolling
       let range = textView.selectedRange
       textView.scrollRangeToVisible(range)
       
       // Also use scrollRectToVisible as a backup
       textView.scrollRectToVisible(rectToShow, animated: false)
+      
+      // Restore scroll state if we temporarily enabled it
+      // But only if we're still in "growth mode" (content fits within maxLines)
+      if !wasScrollEnabled {
+        let lineHeight = fontSize * 1.2
+        let verticalPadding: CGFloat = 28
+        let maxHeight = lineHeight * CGFloat(maxLines) + verticalPadding
+        let contentHeight = textView.sizeThatFits(CGSize(width: textView.bounds.width, height: .greatestFiniteMagnitude)).height
+        
+        // Only disable scroll if content still fits
+        if contentHeight <= maxHeight {
+          textView.isScrollEnabled = false
+        }
+      }
     }
   }
   
