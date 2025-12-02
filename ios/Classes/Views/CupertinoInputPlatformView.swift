@@ -287,11 +287,16 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
   }
   
   private func scrollToCursor() {
-    // Only scroll if scrolling is enabled (content exceeds max height)
-    guard textView.isScrollEnabled else { return }
+    guard let selectedRange = textView.selectedTextRange else { return }
     
-    // Scroll to bottom to show the cursor
-    scrollToBottom()
+    // Get cursor rect
+    let cursorRect = textView.caretRect(for: selectedRange.end)
+    guard !cursorRect.isNull && !cursorRect.isInfinite else { return }
+    
+    // Always try to scroll to make cursor visible
+    var rectToShow = cursorRect
+    rectToShow.size.height += 20 // Add padding below cursor
+    textView.scrollRectToVisible(rectToShow, animated: false)
   }
   
   func textViewDidBeginEditing(_ textView: UITextView) {
@@ -340,13 +345,6 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     let shouldScroll = size.height > maxHeight
     if textView.isScrollEnabled != shouldScroll {
       textView.isScrollEnabled = shouldScroll
-      
-      // When enabling scrolling, scroll to the cursor position
-      if shouldScroll {
-        DispatchQueue.main.async { [weak self] in
-          self?.scrollToBottom()
-        }
-      }
     }
     
     return calculatedHeight
