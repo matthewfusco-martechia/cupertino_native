@@ -16,6 +16,13 @@ import 'package:flutter/cupertino.dart';
 // 6. Click "Add" and wait for rebuild
 //
 // Without this package, the widget will NOT compile!
+//
+// TO DISMISS KEYBOARD WHEN TAPPING OUTSIDE:
+// Wrap your page's main content with GestureDetector:
+//   GestureDetector(
+//     onTap: () => FocusScope.of(context).unfocus(),
+//     child: YourPageContent(),
+//   )
 // ============================================================================
 import 'package:cupertino_native/cupertino_native.dart';
 

@@ -280,20 +280,18 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     channel.invokeMethod("textChanged", arguments: ["text": textView.text ?? ""])
     notifyHeightChange()
     
-    // Scroll to cursor position to keep it visible
-    scrollToCursor()
+    // Scroll to cursor position after layout updates
+    DispatchQueue.main.async { [weak self] in
+      self?.scrollToCursor()
+    }
   }
   
   private func scrollToCursor() {
-    guard let selectedRange = textView.selectedTextRange else { return }
-    let cursorRect = textView.caretRect(for: selectedRange.end)
+    // Only scroll if scrolling is enabled (content exceeds max height)
+    guard textView.isScrollEnabled else { return }
     
-    // Add some padding to ensure cursor is visible
-    var visibleRect = cursorRect
-    visibleRect.size.height += 8
-    
-    // Scroll to make cursor visible
-    textView.scrollRectToVisible(visibleRect, animated: false)
+    // Scroll to bottom to show the cursor
+    scrollToBottom()
   }
   
   func textViewDidBeginEditing(_ textView: UITextView) {
@@ -311,6 +309,15 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
       textView.resignFirstResponder()
       return false
     }
+    
+    // For multiline, when pressing return, scroll to cursor after the change
+    if text == "\n" && maxLines > 1 {
+      DispatchQueue.main.async { [weak self] in
+        self?.notifyHeightChange()
+        self?.scrollToCursor()
+      }
+    }
+    
     return true
   }
   
@@ -329,13 +336,25 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     let size = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
     let calculatedHeight = min(max(size.height, minHeight), maxHeight)
     
-    // Enable scrolling when we hit max height, disable otherwise for auto-sizing
-    let shouldScroll = size.height >= maxHeight
+    // Enable scrolling when content exceeds max height
+    let shouldScroll = size.height > maxHeight
     if textView.isScrollEnabled != shouldScroll {
       textView.isScrollEnabled = shouldScroll
+      
+      // When enabling scrolling, scroll to the cursor position
+      if shouldScroll {
+        DispatchQueue.main.async { [weak self] in
+          self?.scrollToBottom()
+        }
+      }
     }
     
     return calculatedHeight
+  }
+  
+  private func scrollToBottom() {
+    let bottomOffset = CGPoint(x: 0, y: max(0, textView.contentSize.height - textView.bounds.height))
+    textView.setContentOffset(bottomOffset, animated: false)
   }
   
   private func notifyHeightChange() {
