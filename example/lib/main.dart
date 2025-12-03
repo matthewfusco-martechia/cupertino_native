@@ -14,6 +14,7 @@ import 'demos/liquid_glass_text_field.dart';
 import 'demos/liquid_glass_container_2_row.dart';
 import 'demos/liquid_glass_container_1_row.dart';
 import 'demos/liquid_glass_dialog_button.dart';
+import 'demos/liquid_glass_input_dialog_demo.dart';
 
 void main() {
   runApp(const MyApp());
@@ -324,6 +325,20 @@ class HomePage extends StatelessWidget {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
                       builder: (_) => const LiquidGlassDialogButtonDemo(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Input Dialog Action'),
+                leading: CNIcon(
+                  symbol: CNSymbol('pencil.line', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassInputDialogDemo(),
                     ),
                   );
                 },

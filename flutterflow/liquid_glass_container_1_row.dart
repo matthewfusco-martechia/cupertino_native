@@ -14,9 +14,10 @@ class FFLiquidGlassContainer1Row extends StatelessWidget {
     this.containerRadius = 16.0,
     required this.text,
     this.fontSize = 20.0,
-    this.textColor = Colors.black,
+    this.textColor,
     this.tintColor,
     this.glassStyle = 'regular',
+    this.isDarkMode = false,
     this.onPressed,
   });
 
@@ -35,14 +36,17 @@ class FFLiquidGlassContainer1Row extends StatelessWidget {
   /// Font size for the text.
   final double fontSize;
 
-  /// Text color.
-  final Color textColor;
+  /// Text color (auto-selected based on isDarkMode if not provided).
+  final Color? textColor;
 
   /// Tint color for the glass effect.
   final Color? tintColor;
 
   /// The style of the glass effect (e.g., 'regular', 'prominent', 'clear').
   final String glassStyle;
+
+  /// Whether to use dark mode styling.
+  final bool isDarkMode;
 
   /// Action when the container is pressed.
   final Future<void> Function()? onPressed;
@@ -60,38 +64,48 @@ class FFLiquidGlassContainer1Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CNGlassEffectContainer(
-              cornerRadius: containerRadius,
-              glassStyle: _resolveGlassStyle(glassStyle),
-              tint: tintColor,
-              interactive: onPressed != null,
-              onTap: onPressed != null ? () => onPressed?.call() : null,
-              child: const SizedBox(),
-            ),
-          ),
-          IgnorePointer(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                  fontFamily: 'SF Pro Text',
+    // Determine colors based on dark mode
+    final effectiveTextColor = textColor ?? (isDarkMode ? Colors.white : Colors.black);
+
+    return Theme(
+      data: isDarkMode ? ThemeData.dark() : ThemeData.light(),
+      child: CupertinoTheme(
+        data: CupertinoThemeData(
+          brightness: isDarkMode ? Brightness.dark : Brightness.light,
+        ),
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CNGlassEffectContainer(
+                  cornerRadius: containerRadius,
+                  glassStyle: _resolveGlassStyle(glassStyle),
+                  tint: tintColor,
+                  interactive: onPressed != null,
+                  onTap: onPressed != null ? () => onPressed?.call() : null,
+                  child: const SizedBox(),
                 ),
               ),
-            ),
+              IgnorePointer(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.bold,
+                      color: effectiveTextColor,
+                      fontFamily: 'SF Pro Text',
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
-

@@ -14,12 +14,13 @@ class FFLiquidGlassContainer2Row extends StatelessWidget {
     this.containerRadius = 16.0,
     required this.line1Text,
     this.line1Size = 20.0,
-    this.line1Color = Colors.black,
+    this.line1Color,
     required this.line2Text,
     this.line2Size = 14.0,
-    this.line2Color = Colors.black,
+    this.line2Color,
     this.tintColor,
     this.glassStyle = 'regular',
+    this.isDarkMode = false,
     this.onPressed,
   });
 
@@ -38,8 +39,8 @@ class FFLiquidGlassContainer2Row extends StatelessWidget {
   /// Font size for line 1.
   final double line1Size;
 
-  /// Text color for line 1.
-  final Color line1Color;
+  /// Text color for line 1 (auto-selected based on isDarkMode if not provided).
+  final Color? line1Color;
 
   /// The subtitle text.
   final String line2Text;
@@ -47,14 +48,17 @@ class FFLiquidGlassContainer2Row extends StatelessWidget {
   /// Font size for line 2.
   final double line2Size;
 
-  /// Text color for line 2.
-  final Color line2Color;
+  /// Text color for line 2 (auto-selected based on isDarkMode if not provided).
+  final Color? line2Color;
 
   /// Tint color for the glass effect.
   final Color? tintColor;
 
   /// The style of the glass effect (e.g., 'regular', 'prominent', 'clear').
   final String glassStyle;
+
+  /// Whether to use dark mode styling.
+  final bool isDarkMode;
 
   /// Action when the container is pressed.
   final Future<void> Function()? onPressed;
@@ -72,51 +76,62 @@ class FFLiquidGlassContainer2Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: CNGlassEffectContainer(
-            cornerRadius: containerRadius,
-            glassStyle: _resolveGlassStyle(glassStyle),
-            tint: tintColor,
-            interactive: onPressed != null,
-            onTap: onPressed != null ? () => onPressed?.call() : null,
-            child: const SizedBox(),
-          ),
+    // Determine colors based on dark mode
+    final effectiveLine1Color = line1Color ?? (isDarkMode ? Colors.white : Colors.black);
+    final effectiveLine2Color = line2Color ?? (isDarkMode ? Colors.white70 : Colors.black54);
+
+    return Theme(
+      data: isDarkMode ? ThemeData.dark() : ThemeData.light(),
+      child: CupertinoTheme(
+        data: CupertinoThemeData(
+          brightness: isDarkMode ? Brightness.dark : Brightness.light,
         ),
-        IgnorePointer(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  line1Text,
-                  style: TextStyle(
-                    fontSize: line1Size,
-                    fontWeight: FontWeight.bold,
-                    color: line1Color,
-                    fontFamily: 'SF Pro Text',
-                  ),
-                ),
-                const SizedBox(height: 8.0),
-                Text(
-                  line2Text,
-                  style: TextStyle(
-                    fontSize: line2Size,
-                    fontWeight: FontWeight.normal,
-                    color: line2Color,
-                    fontFamily: 'SF Pro Text',
-                  ),
-                ),
-              ],
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: CNGlassEffectContainer(
+                cornerRadius: containerRadius,
+                glassStyle: _resolveGlassStyle(glassStyle),
+                tint: tintColor,
+                interactive: onPressed != null,
+                onTap: onPressed != null ? () => onPressed?.call() : null,
+                child: const SizedBox(),
+              ),
             ),
-          ),
+            IgnorePointer(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      line1Text,
+                      style: TextStyle(
+                        fontSize: line1Size,
+                        fontWeight: FontWeight.bold,
+                        color: effectiveLine1Color,
+                        fontFamily: 'SF Pro Text',
+                      ),
+                    ),
+                    const SizedBox(height: 8.0),
+                    Text(
+                      line2Text,
+                      style: TextStyle(
+                        fontSize: line2Size,
+                        fontWeight: FontWeight.normal,
+                        color: effectiveLine2Color,
+                        fontFamily: 'SF Pro Text',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
-

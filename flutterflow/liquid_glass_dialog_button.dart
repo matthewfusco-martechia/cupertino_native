@@ -12,7 +12,7 @@ class FFLiquidGlassDialogButton extends StatelessWidget {
     this.width,
     this.height,
     required this.buttonText,
-    this.buttonTextColor = CupertinoColors.label,
+    this.buttonTextColor,
     this.buttonGlassStyle = 'regular',
     this.buttonTint,
     required this.dialogTitle,
@@ -21,6 +21,7 @@ class FFLiquidGlassDialogButton extends StatelessWidget {
     this.cancelButtonText = 'Cancel',
     this.isDestructive = false,
     this.useActionSheet = false,
+    this.isDarkMode = false,
     this.onConfirm,
   });
 
@@ -34,8 +35,8 @@ class FFLiquidGlassDialogButton extends StatelessWidget {
   /// Text to display on the trigger button.
   final String buttonText;
 
-  /// Color of the button text.
-  final Color buttonTextColor;
+  /// Color of the button text (auto-selected based on isDarkMode if not provided).
+  final Color? buttonTextColor;
 
   /// Glass style for the trigger button.
   final String buttonGlassStyle;
@@ -62,6 +63,9 @@ class FFLiquidGlassDialogButton extends StatelessWidget {
   /// Use an Action Sheet (bottom slide-up) instead of an Alert Dialog (center).
   final bool useActionSheet;
 
+  /// Whether to use dark mode styling.
+  final bool isDarkMode;
+
   // --- Action ---
   /// Action to execute when the user confirms.
   final Future<void> Function()? onConfirm;
@@ -79,39 +83,50 @@ class FFLiquidGlassDialogButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CNGlassEffectContainer(
-              cornerRadius: 16.0,
-              glassStyle: _resolveGlassStyle(buttonGlassStyle),
-              tint: buttonTint,
-              interactive: true,
-              onTap: () => _showDialog(context),
-              child: const SizedBox(),
-            ),
-          ),
-          IgnorePointer(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text(
-                  buttonText,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 17.0, // Standard iOS body size
-                    fontWeight: FontWeight.w600,
-                    color: buttonTextColor,
-                    fontFamily: 'SF Pro Text',
+    // Determine colors based on dark mode
+    final effectiveTextColor = buttonTextColor ?? (isDarkMode ? Colors.white : CupertinoColors.label);
+
+    return Theme(
+      data: isDarkMode ? ThemeData.dark() : ThemeData.light(),
+      child: CupertinoTheme(
+        data: CupertinoThemeData(
+          brightness: isDarkMode ? Brightness.dark : Brightness.light,
+        ),
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CNGlassEffectContainer(
+                  cornerRadius: 16.0,
+                  glassStyle: _resolveGlassStyle(buttonGlassStyle),
+                  tint: buttonTint,
+                  interactive: true,
+                  onTap: () => _showDialog(context),
+                  child: const SizedBox(),
+                ),
+              ),
+              IgnorePointer(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text(
+                      buttonText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 17.0, // Standard iOS body size
+                        fontWeight: FontWeight.w600,
+                        color: effectiveTextColor,
+                        fontFamily: 'SF Pro Text',
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -166,4 +181,3 @@ class FFLiquidGlassDialogButton extends StatelessWidget {
     }
   }
 }
-
