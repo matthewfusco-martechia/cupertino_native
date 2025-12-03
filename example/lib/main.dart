@@ -11,6 +11,7 @@ import 'demos/navigation_bar.dart';
 import 'demos/glass_effect_container.dart';
 import 'demos/input.dart';
 import 'demos/liquid_glass_text_field.dart';
+import 'demos/liquid_glass_container.dart';
 
 void main() {
   runApp(const MyApp());
@@ -274,6 +275,20 @@ class HomePage extends StatelessWidget {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
                       builder: (_) => const GlassEffectContainerDemoPage(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Liquid Glass Container'),
+                leading: CNIcon(
+                  symbol: CNSymbol('square.fill.on.square.fill', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassContainerDemo(),
                     ),
                   );
                 },

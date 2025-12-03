@@ -6,7 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
-
+import 'package:cupertino_native/cupertino_native.dart';
 // Required package import - add cupertino_native to your pubspec.yaml:
 // dependencies:
 //   cupertino_native: ^latest_version
@@ -185,7 +185,7 @@ class FFPopupMenuButton extends StatefulWidget {
     this.onSelected,
     this.isDarkMode = false,
     this.tintColor,
-    this.buttonStyle = FFPopupMenuButtonStyle.glass,
+    this.buttonStyle = 'glass',
   });
 
   /// The width of the widget (required by FlutterFlow).
@@ -225,7 +225,8 @@ class FFPopupMenuButton extends StatefulWidget {
   final Color? tintColor;
 
   /// Visual style of the button.
-  final FFPopupMenuButtonStyle buttonStyle;
+  /// Options: 'plain', 'gray', 'tinted', 'bordered', 'borderedProminent', 'filled', 'glass', 'prominentGlass'
+  final String buttonStyle;
 
   /// Whether this is an icon button (no label).
   bool get isIconButton => iconName != null && buttonLabel == null;
@@ -242,7 +243,7 @@ class _FFPopupMenuButtonState extends State<FFPopupMenuButton> {
   String? _lastIconName;
   double? _lastIconSize;
   int? _lastIconColor;
-  FFPopupMenuButtonStyle? _lastStyle;
+  String? _lastStyle;
   Offset? _downPosition;
   bool _pressed = false;
 
@@ -359,7 +360,7 @@ class _FFPopupMenuButtonState extends State<FFPopupMenuButton> {
       if (widget.iconColor != null)
         'buttonIconColor': _resolveColorToArgb(widget.iconColor, context),
       if (widget.isIconButton) 'round': true,
-      'buttonStyle': widget.buttonStyle.name,
+      'buttonStyle': widget.buttonStyle,
       'labels': labels,
       'sfSymbols': symbols,
       'isDivider': isDivider,
@@ -487,7 +488,7 @@ class _FFPopupMenuButtonState extends State<FFPopupMenuButton> {
     }
     if (_lastStyle != widget.buttonStyle) {
       await ch.invokeMethod('setStyle', {
-        'buttonStyle': widget.buttonStyle.name,
+        'buttonStyle': widget.buttonStyle,
       });
       _lastStyle = widget.buttonStyle;
     }
