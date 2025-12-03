@@ -11,7 +11,8 @@ import 'demos/navigation_bar.dart';
 import 'demos/glass_effect_container.dart';
 import 'demos/input.dart';
 import 'demos/liquid_glass_text_field.dart';
-import 'demos/liquid_glass_container.dart';
+import 'demos/liquid_glass_container_2_row.dart';
+import 'demos/liquid_glass_container_1_row.dart';
 
 void main() {
   runApp(const MyApp());
@@ -279,8 +280,13 @@ class HomePage extends StatelessWidget {
                   );
                 },
               ),
+            ],
+          ),
+          CupertinoListSection.insetGrouped(
+            header: Text('Liquid Glass Containers'),
+            children: [
               CupertinoListTile(
-                title: Text('Liquid Glass Container'),
+                title: Text('2 rows of text within container'),
                 leading: CNIcon(
                   symbol: CNSymbol('square.fill.on.square.fill', color: accentColor),
                 ),
@@ -288,7 +294,21 @@ class HomePage extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
-                      builder: (_) => const LiquidGlassContainerDemo(),
+                      builder: (_) => const LiquidGlassContainer2RowDemo(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('1 row of text within container'),
+                leading: CNIcon(
+                  symbol: CNSymbol('square.fill', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassContainer1RowDemo(),
                     ),
                   );
                 },

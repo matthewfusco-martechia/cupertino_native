@@ -1,14 +1,14 @@
 import 'package:flutter/cupertino.dart';
-import 'package:cupertino_native/components/liquid_glass_container.dart';
+import 'package:cupertino_native/components/liquid_glass_container_2_row.dart';
 
-class LiquidGlassContainerDemo extends StatelessWidget {
-  const LiquidGlassContainerDemo({super.key});
+class LiquidGlassContainer2RowDemo extends StatelessWidget {
+  const LiquidGlassContainer2RowDemo({super.key});
 
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
-        middle: Text('Liquid Glass Container'),
+        middle: Text('Liquid Glass Container (2 Rows)'),
       ),
       child: SafeArea(
         child: Center(
@@ -18,7 +18,7 @@ class LiquidGlassContainerDemo extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Standard Example
-                LiquidGlassContainer(
+                LiquidGlassContainer2Row(
                   line1Text: 'Explain Quantum',
                   line2Text: 'Complex scientific concept',
                   onPressed: () {
@@ -40,7 +40,7 @@ class LiquidGlassContainerDemo extends StatelessWidget {
                 const SizedBox(height: 24),
                 
                 // Custom Radius & Colors
-                LiquidGlassContainer(
+                LiquidGlassContainer2Row(
                   containerRadius: 24.0,
                   line1Text: 'Design System',
                   line1Color: CupertinoColors.activeBlue,
@@ -58,7 +58,7 @@ class LiquidGlassContainerDemo extends StatelessWidget {
                     color: CupertinoColors.black,
                     borderRadius: BorderRadius.circular(32),
                   ),
-                  child: const LiquidGlassContainer(
+                  child: const LiquidGlassContainer2Row(
                     line1Text: 'Dark Mode Context',
                     line1Color: CupertinoColors.white,
                     line2Text: 'Glass adapts to background',
