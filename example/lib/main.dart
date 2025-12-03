@@ -13,6 +13,7 @@ import 'demos/input.dart';
 import 'demos/liquid_glass_text_field.dart';
 import 'demos/liquid_glass_container_2_row.dart';
 import 'demos/liquid_glass_container_1_row.dart';
+import 'demos/liquid_glass_dialog_button.dart';
 
 void main() {
   runApp(const MyApp());
@@ -309,6 +310,20 @@ class HomePage extends StatelessWidget {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
                       builder: (_) => const LiquidGlassContainer1RowDemo(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Liquid Glass Dialog Button'),
+                leading: CNIcon(
+                  symbol: CNSymbol('exclamationmark.bubble.fill', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassDialogButtonDemo(),
                     ),
                   );
                 },
