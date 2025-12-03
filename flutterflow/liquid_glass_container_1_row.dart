@@ -1,12 +1,19 @@
 // Automatic FlutterFlow imports
+import '/backend/schema/structs/index.dart';
+import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/custom_code/widgets/index.dart'; // Imports other custom widgets
+import '/custom_code/actions/index.dart'; // Imports custom actions
+import '/flutter_flow/custom_functions.dart'; // Imports custom functions
 import 'package:flutter/material.dart';
+// Begin custom widget code
+// DO NOT REMOVE OR MODIFY THE CODE ABOVE!
+
 import 'package:flutter/cupertino.dart';
 import 'package:cupertino_native/cupertino_native.dart';
 
-/// A glass-style container with one row of text for FlutterFlow.
-class FFLiquidGlassContainer1Row extends StatelessWidget {
+class FFLiquidGlassContainer1Row extends StatefulWidget {
   const FFLiquidGlassContainer1Row({
     super.key,
     this.width,
@@ -21,36 +28,24 @@ class FFLiquidGlassContainer1Row extends StatelessWidget {
     this.onPressed,
   });
 
-  /// The width of the widget (optional).
   final double? width;
-
-  /// The height of the widget (optional).
   final double? height;
-
-  /// Rounded corner radius of the glass container.
   final double containerRadius;
-
-  /// The text to display.
   final String text;
-
-  /// Font size for the text.
   final double fontSize;
-
-  /// Text color (auto-selected based on isDarkMode if not provided).
   final Color? textColor;
-
-  /// Tint color for the glass effect.
   final Color? tintColor;
-
-  /// The style of the glass effect (e.g., 'regular', 'prominent', 'clear').
   final String glassStyle;
-
-  /// Whether to use dark mode styling.
   final bool isDarkMode;
+  final Future Function()? onPressed;
 
-  /// Action when the container is pressed.
-  final Future<void> Function()? onPressed;
+  @override
+  State<FFLiquidGlassContainer1Row> createState() =>
+      _FFLiquidGlassContainer1RowState();
+}
 
+class _FFLiquidGlassContainer1RowState
+    extends State<FFLiquidGlassContainer1Row> {
   CNGlassStyle _resolveGlassStyle(String style) {
     switch (style.toLowerCase()) {
       case 'regular':
@@ -64,27 +59,29 @@ class FFLiquidGlassContainer1Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determine colors based on dark mode
-    final effectiveTextColor = textColor ?? (isDarkMode ? Colors.white : Colors.black);
+    final effectiveTextColor =
+        widget.textColor ?? (widget.isDarkMode ? Colors.white : Colors.black);
 
     return Theme(
-      data: isDarkMode ? ThemeData.dark() : ThemeData.light(),
+      data: widget.isDarkMode ? ThemeData.dark() : ThemeData.light(),
       child: CupertinoTheme(
         data: CupertinoThemeData(
-          brightness: isDarkMode ? Brightness.dark : Brightness.light,
+          brightness: widget.isDarkMode ? Brightness.dark : Brightness.light,
         ),
         child: SizedBox(
-          width: width,
-          height: height,
+          width: widget.width,
+          height: widget.height,
           child: Stack(
             children: [
               Positioned.fill(
                 child: CNGlassEffectContainer(
-                  cornerRadius: containerRadius,
-                  glassStyle: _resolveGlassStyle(glassStyle),
-                  tint: tintColor,
-                  interactive: onPressed != null,
-                  onTap: onPressed != null ? () => onPressed?.call() : null,
+                  cornerRadius: widget.containerRadius,
+                  glassStyle: _resolveGlassStyle(widget.glassStyle),
+                  tint: widget.tintColor,
+                  interactive: widget.onPressed != null,
+                  onTap: widget.onPressed != null
+                      ? () => widget.onPressed?.call()
+                      : null,
                   child: const SizedBox(),
                 ),
               ),
@@ -92,9 +89,9 @@ class FFLiquidGlassContainer1Row extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Text(
-                    text,
+                    widget.text,
                     style: TextStyle(
-                      fontSize: fontSize,
+                      fontSize: widget.fontSize,
                       fontWeight: FontWeight.bold,
                       color: effectiveTextColor,
                       fontFamily: 'SF Pro Text',

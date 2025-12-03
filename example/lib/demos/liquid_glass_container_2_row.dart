@@ -1,14 +1,14 @@
 import 'package:flutter/cupertino.dart';
-import 'package:cupertino_native/components/liquid_glass_container_2_row.dart';
+import 'package:cupertino_native/components/liquid_glass_container.dart';
 
-class LiquidGlassContainer2RowDemo extends StatelessWidget {
-  const LiquidGlassContainer2RowDemo({super.key});
+class LiquidGlassContainerDemo extends StatelessWidget {
+  const LiquidGlassContainerDemo({super.key});
 
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
-        middle: Text('Liquid Glass Container (2 Rows)'),
+        middle: Text('Liquid Glass Container'),
       ),
       child: SafeArea(
         child: Center(
@@ -18,7 +18,7 @@ class LiquidGlassContainer2RowDemo extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Standard Example
-                LiquidGlassContainer2Row(
+                LiquidGlassContainer(
                   line1Text: 'Explain Quantum',
                   line2Text: 'Complex scientific concept',
                   onPressed: () {
@@ -40,7 +40,7 @@ class LiquidGlassContainer2RowDemo extends StatelessWidget {
                 const SizedBox(height: 24),
                 
                 // Custom Radius & Colors
-                LiquidGlassContainer2Row(
+                LiquidGlassContainer(
                   containerRadius: 24.0,
                   line1Text: 'Design System',
                   line1Color: CupertinoColors.activeBlue,
@@ -58,7 +58,7 @@ class LiquidGlassContainer2RowDemo extends StatelessWidget {
                     color: CupertinoColors.black,
                     borderRadius: BorderRadius.circular(32),
                   ),
-                  child: const LiquidGlassContainer2Row(
+                  child: const LiquidGlassContainer(
                     line1Text: 'Dark Mode Context',
                     line1Color: CupertinoColors.white,
                     line2Text: 'Glass adapts to background',

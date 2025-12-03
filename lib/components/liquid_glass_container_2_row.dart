@@ -1,9 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:cupertino_native/components/glass_effect_container.dart';
 
-/// A glass-style container with two rows of text.
-class LiquidGlassContainer2Row extends StatelessWidget {
-  const LiquidGlassContainer2Row({
+/// A glass-style container with two lines of text.
+class LiquidGlassContainer extends StatelessWidget {
+  const LiquidGlassContainer({
     super.key,
     this.containerRadius = 16.0,
     required this.line1Text,
