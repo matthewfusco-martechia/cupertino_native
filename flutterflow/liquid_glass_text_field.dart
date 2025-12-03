@@ -192,6 +192,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
             width: widget.width,
             glassStyle: CNGlassStyle.regular,
             cornerRadius: effectiveCornerRadius,
+            interactive: true,
             child: Row(
               // Always stretch to fill, let each child manage its own alignment
               crossAxisAlignment: CrossAxisAlignment.stretch,
