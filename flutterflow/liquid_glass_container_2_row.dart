@@ -75,7 +75,7 @@ class _LiquidGlassContainer2RowState extends State<LiquidGlassContainer2Row> {
         data: CupertinoThemeData(
           brightness: widget.isDarkMode ? Brightness.dark : Brightness.light,
         ),
-        child: SizedBox(
+        child: Container(
           width: widget.width,
           height: widget.height,
           child: Stack(
@@ -89,37 +89,39 @@ class _LiquidGlassContainer2RowState extends State<LiquidGlassContainer2Row> {
                   onTap: widget.onPressed != null
                       ? () => widget.onPressed?.call()
                       : null,
-                  child: const SizedBox(),
+                  child: const SizedBox.expand(),
                 ),
               ),
-              IgnorePointer(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        widget.line1Text,
-                        style: TextStyle(
-                          fontSize: widget.line1Size,
-                          fontWeight: FontWeight.bold,
-                          color: effectiveLine1Color,
-                          fontFamily: 'SF Pro Text',
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          widget.line1Text,
+                          style: TextStyle(
+                            fontSize: widget.line1Size,
+                            fontWeight: FontWeight.bold,
+                            color: effectiveLine1Color,
+                            fontFamily: 'SF Pro Text',
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8.0),
-                      Text(
-                        widget.line2Text,
-                        style: TextStyle(
-                          fontSize: widget.line2Size,
-                          fontWeight: FontWeight.normal,
-                          color: effectiveLine2Color,
-                          fontFamily: 'SF Pro Text',
+                        const SizedBox(height: 8.0),
+                        Text(
+                          widget.line2Text,
+                          style: TextStyle(
+                            fontSize: widget.line2Size,
+                            fontWeight: FontWeight.normal,
+                            color: effectiveLine2Color,
+                            fontFamily: 'SF Pro Text',
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
