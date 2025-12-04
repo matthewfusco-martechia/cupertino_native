@@ -5,7 +5,7 @@ import 'package:cupertino_native/cupertino_native.dart';
 ///
 /// This widget combines [CNGlassEffectContainer] and [CNInput] to create
 /// a modern, translucent input field similar to those found in iOS system apps.
-/// Supports multiline input with dynamic height expansion.
+/// The trailing send button automatically appears when text is entered.
 class LiquidGlassTextField extends StatefulWidget {
   /// Creates a liquid glass text field.
   const LiquidGlassTextField({
@@ -16,13 +16,15 @@ class LiquidGlassTextField extends StatefulWidget {
     this.onChanged,
     this.onFocusChanged,
     this.leading,
-    this.trailing,
     this.minHeight = 50.0,
     this.width,
     this.glassStyle = CNGlassStyle.regular,
     this.tint,
     this.maxLines = 10,
     this.cornerRadius,
+    this.trailingIconColor,
+    this.trailingIconInnerColor,
+    this.trailingIconName,
   });
 
   /// Controls the text being edited.
@@ -31,7 +33,7 @@ class LiquidGlassTextField extends StatefulWidget {
   /// Text that appears when the field is empty.
   final String? placeholder;
 
-  /// Called when the user submits the text (e.g. presses return).
+  /// Called when the user submits the text (e.g. presses send button).
   final ValueChanged<String>? onSubmitted;
 
   /// Called when the text changes.
@@ -42,9 +44,6 @@ class LiquidGlassTextField extends StatefulWidget {
 
   /// An optional widget to display before the input field.
   final Widget? leading;
-
-  /// An optional widget to display after the input field.
-  final Widget? trailing;
 
   /// The minimum height of the text field.
   final double minHeight;
@@ -64,18 +63,43 @@ class LiquidGlassTextField extends StatefulWidget {
   /// Corner radius for the glass container. Defaults to minHeight / 2 (pill shape).
   final double? cornerRadius;
 
+  /// The tint/background color of the trailing send button.
+  final Color? trailingIconColor;
+
+  /// The color of the icon symbol itself (e.g., the arrow). Defaults to white.
+  final Color? trailingIconInnerColor;
+
+  /// SF Symbol name for the trailing icon. Defaults to "arrow.up".
+  final String? trailingIconName;
+
   @override
   State<LiquidGlassTextField> createState() => LiquidGlassTextFieldState();
 }
 
+/// State for [LiquidGlassTextField].
 class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   double _currentHeight = 50.0;
   final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
+  late TextEditingController _controller;
+  String _currentText = '';
+
+  // Show trailing icon only when there's text
+  bool get _showTrailingIcon => _currentText.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _currentHeight = widget.minHeight;
+    _controller = widget.controller ?? TextEditingController();
+    _currentText = _controller.text;
+  }
+
+  @override
+  void dispose() {
+    if (widget.controller == null) {
+      _controller.dispose();
+    }
+    super.dispose();
   }
 
   double _calculateMaxHeight() {
@@ -94,9 +118,27 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     _inputKey.currentState?.focus();
   }
 
+  void _handleSubmit() {
+    final text = _currentText;
+    if (text.isNotEmpty) {
+      widget.onSubmitted?.call(text);
+      _controller.clear();
+      setState(() {
+        _currentText = '';
+        _currentHeight = widget.minHeight;
+      });
+      _inputKey.currentState?.unfocus();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final effectiveCornerRadius = widget.cornerRadius ?? widget.minHeight / 2;
+    final effectiveTrailingColor =
+        widget.trailingIconColor ?? CupertinoColors.activeBlue;
+    final effectiveIconInnerColor =
+        widget.trailingIconInnerColor ?? CupertinoColors.white;
+    final effectiveIconName = widget.trailingIconName ?? 'arrow.up';
     
     return AnimatedContainer(
       duration: const Duration(milliseconds: 100),
@@ -126,18 +168,23 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
               child: Padding(
                 padding: EdgeInsets.only(
                   left: widget.leading == null ? 16.0 : 4.0,
-                  right: widget.trailing == null ? 16.0 : 4.0,
+                  right: _showTrailingIcon ? 4.0 : 16.0,
                 ),
                 child: CNInput(
                   key: _inputKey,
-                  controller: widget.controller,
+                  controller: _controller,
                   placeholder: widget.placeholder,
                   // Use transparent background to show the glass effect underneath
                   backgroundColor: CupertinoColors.transparent,
                   borderStyle: CNInputBorderStyle.none,
                   minHeight: widget.minHeight,
-                  onSubmitted: widget.onSubmitted,
-                  onChanged: widget.onChanged,
+                  onSubmitted: (_) => _handleSubmit(),
+                  onChanged: (text) {
+                    setState(() {
+                      _currentText = text;
+                    });
+                    widget.onChanged?.call(text);
+                  },
                   onFocusChanged: widget.onFocusChanged,
                   // Ensure text is visible on glass
                   textColor: CupertinoColors.label,
@@ -154,13 +201,24 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                 ),
               ),
             ),
-            if (widget.trailing != null) ...[
+            // Trailing Send Button - only shown when text is not empty
+            if (_showTrailingIcon) ...[
               Padding(
                 padding: EdgeInsets.only(
                   right: 8.0,
                   bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
                 ),
-                child: widget.trailing!,
+                child: CNButton.icon(
+                  icon: CNSymbol(
+                    effectiveIconName,
+                    size: 16,
+                    color: effectiveIconInnerColor,
+                  ),
+                  size: 32,
+                  style: CNButtonStyle.prominentGlass,
+                  tint: effectiveTrailingColor,
+                  onPressed: _handleSubmit,
+                ),
               ),
             ],
           ],

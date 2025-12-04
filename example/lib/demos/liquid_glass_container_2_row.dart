@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:cupertino_native/components/liquid_glass_container.dart';
+import 'package:cupertino_native/components/liquid_glass_container_2_row.dart';
 
 class LiquidGlassContainerDemo extends StatelessWidget {
   const LiquidGlassContainerDemo({super.key});

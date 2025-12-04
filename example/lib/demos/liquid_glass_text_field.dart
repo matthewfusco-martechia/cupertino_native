@@ -11,12 +11,16 @@ class LiquidGlassTextFieldDemoPage extends StatefulWidget {
 
 class _LiquidGlassTextFieldDemoPageState
     extends State<LiquidGlassTextFieldDemoPage> {
-  final TextEditingController _controller = TextEditingController();
+  final TextEditingController _controller1 = TextEditingController();
+  final TextEditingController _controller2 = TextEditingController();
+  final TextEditingController _controller3 = TextEditingController();
   String _submittedText = '';
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller1.dispose();
+    _controller2.dispose();
+    _controller3.dispose();
     super.dispose();
   }
 
@@ -50,7 +54,7 @@ class _LiquidGlassTextFieldDemoPageState
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'A translucent input field with native glass effect.',
+                  'Send button appears when you type!',
                   style: TextStyle(
                     fontSize: 16,
                     color: CupertinoColors.white,
@@ -58,9 +62,9 @@ class _LiquidGlassTextFieldDemoPageState
                 ),
                 const SizedBox(height: 40),
 
-                // Demo 1: Standalone
+                // Demo 1: Standard (auto-show send button)
                 const Text(
-                  'Standard',
+                  'Standard (type to see send button)',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -69,19 +73,21 @@ class _LiquidGlassTextFieldDemoPageState
                 ),
                 const SizedBox(height: 12),
                 LiquidGlassTextField(
-                  controller: _controller,
+                  controller: _controller1,
                   placeholder: 'Type a message...',
                   maxLines: 10,
-                  onChanged: (text) {
-                    // Text field will auto-expand as you type
+                  onSubmitted: (text) {
+                    setState(() {
+                      _submittedText = text;
+                    });
                   },
                 ),
 
                 const SizedBox(height: 32),
 
-                // Demo 2: With Buttons (iMessage style)
+                // Demo 2: Custom icon colors
                 const Text(
-                  'With Actions',
+                  'Custom Icon Colors',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -90,19 +96,41 @@ class _LiquidGlassTextFieldDemoPageState
                 ),
                 const SizedBox(height: 12),
                 LiquidGlassTextField(
-                  placeholder: 'Message',
-                  maxLines: 10,
-                  trailing: CNButton.icon(
-                    icon: const CNSymbol(
-                      'arrow.up',
-                      size: 16,
-                      color: CupertinoColors.white,
-                    ),
-                    size: 32,
-                    style: CNButtonStyle.prominentGlass,
-                    tint: CupertinoColors.activeBlue,
-                    onPressed: () {},
+                  controller: _controller2,
+                  placeholder: 'Green button, black icon...',
+                  maxLines: 5,
+                  trailingIconColor: CupertinoColors.systemGreen,
+                  trailingIconInnerColor: CupertinoColors.black,
+                  onSubmitted: (text) {
+                    setState(() {
+                      _submittedText = text;
+                    });
+                  },
+                ),
+
+                const SizedBox(height: 32),
+
+                // Demo 3: Custom icon name
+                const Text(
+                  'Custom Icon (paperplane)',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: CupertinoColors.white,
                   ),
+                ),
+                const SizedBox(height: 12),
+                LiquidGlassTextField(
+                  controller: _controller3,
+                  placeholder: 'Send with paperplane...',
+                  maxLines: 5,
+                  trailingIconName: 'paperplane.fill',
+                  trailingIconColor: CupertinoColors.systemPurple,
+                  onSubmitted: (text) {
+                    setState(() {
+                      _submittedText = text;
+                    });
+                  },
                 ),
 
                 const SizedBox(height: 32),
@@ -111,7 +139,7 @@ class _LiquidGlassTextFieldDemoPageState
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: CupertinoColors.systemBackground.withOpacity(0.8),
+                      color: CupertinoColors.systemBackground.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -138,4 +166,3 @@ class _LiquidGlassTextFieldDemoPageState
     );
   }
 }
-

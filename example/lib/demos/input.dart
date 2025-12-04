@@ -31,7 +31,7 @@ class _InputDemoState extends State<InputDemo> {
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(middle: Text('Input Demo')),
       child: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,6 +157,7 @@ class _InputDemoState extends State<InputDemo> {
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
               ),
+              const SizedBox(height: 100), // Extra space for keyboard
             ],
           ),
         ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:cupertino_native/cupertino_native.dart';
-import 'package:cupertino_native/components/liquid_glass_container_1_row.dart';
 
 // This mimics the Custom Action function for the demo
 Future<String?> _showLiquidGlassInputDialog(
@@ -20,7 +19,7 @@ Future<String?> _showLiquidGlassInputDialog(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Dismiss',
-    barrierColor: Colors.black.withOpacity(0.5),
+    barrierColor: Colors.black.withValues(alpha: 0.5),
     transitionDuration: const Duration(milliseconds: 300),
     pageBuilder: (ctx, anim1, anim2) {
       return Scaffold(
@@ -37,7 +36,7 @@ Future<String?> _showLiquidGlassInputDialog(
                     glassStyle: CNGlassStyle.regular, // Use regular with heavy tint
                     cornerRadius: 24,
                     // Deep charcoal tint to match screenshot
-                    tint: const Color(0xFF1C1C1E).withOpacity(0.75),
+                    tint: const Color(0xFF1C1C1E).withValues(alpha: 0.75),
                     interactive: true, // Make the background interactive/liquid
                     child: const SizedBox(),
                   ),
@@ -78,7 +77,7 @@ Future<String?> _showLiquidGlassInputDialog(
                       Container(
                         height: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3A3A3C).withOpacity(0.5),
+                          color: const Color(0xFF3A3A3C).withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -86,7 +85,7 @@ Future<String?> _showLiquidGlassInputDialog(
                           controller: controller,
                           placeholder: placeholder,
                           placeholderStyle: TextStyle(
-                            color: Colors.white.withOpacity(0.3),
+                            color: Colors.white.withValues(alpha: 0.3),
                             fontFamily: 'SF Pro Text',
                           ),
                           style: const TextStyle(
@@ -170,8 +169,8 @@ class _DialogButton extends StatelessWidget {
               glassStyle: CNGlassStyle.regular,
               // Darker tint for buttons to stand out from dialog background
               tint: isPrimary
-                  ? const Color(0xFF3A3A3C).withOpacity(0.8)
-                  : const Color(0xFF2C2C2E).withOpacity(0.5),
+                  ? const Color(0xFF3A3A3C).withValues(alpha: 0.8)
+                  : const Color(0xFF2C2C2E).withValues(alpha: 0.5),
               interactive: true,
               onTap: onPressed,
               child: const SizedBox(),
@@ -238,25 +237,56 @@ class _LiquidGlassInputDialogDemoState
                       .navLargeTitleTextStyle,
                 ),
                 const SizedBox(height: 48),
-                LiquidGlassContainer1Row(
-                  text: 'Rename Chat',
-                  fontSize: 17,
-                  onPressed: () async {
-                    final newName = await _showLiquidGlassInputDialog(
-                      context,
-                      title: 'Rename Chat',
-                      // message: 'Enter a new name for this project.',
-                      initialText: _chatName,
-                      placeholder: 'Chat Name',
-                      confirmButtonText: 'Rename',
-                    );
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: CNGlassEffectContainer(
+                          cornerRadius: 16.0,
+                          glassStyle: CNGlassStyle.regular,
+                          interactive: true,
+                          onTap: () async {
+                            final newName = await _showLiquidGlassInputDialog(
+                              context,
+                              title: 'Rename Chat',
+                              // message: 'Enter a new name for this project.',
+                              initialText: _chatName,
+                              placeholder: 'Chat Name',
+                              confirmButtonText: 'Rename',
+                            );
 
-                    if (newName != null && newName.isNotEmpty) {
-                      setState(() {
-                        _chatName = newName;
-                      });
-                    }
-                  },
+                            if (newName != null && newName.isNotEmpty) {
+                              setState(() {
+                                _chatName = newName;
+                              });
+                            }
+                          },
+                          child: const SizedBox(),
+                        ),
+                      ),
+                      IgnorePointer(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Text(
+                              'Rename Chat',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 17.0,
+                                fontWeight: FontWeight.w600,
+                                color: CupertinoTheme.of(context).brightness == Brightness.dark
+                                    ? Colors.white
+                                    : CupertinoColors.label,
+                                fontFamily: 'SF Pro Text',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

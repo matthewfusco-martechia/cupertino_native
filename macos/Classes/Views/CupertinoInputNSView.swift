@@ -151,8 +151,19 @@ class CupertinoInputNSView: NSView, NSTextViewDelegate {
       switch call.method {
       case "setText":
         if let args = call.arguments as? [String: Any], let text = args["text"] as? String {
+          // Preserve cursor position when setting text
+          let selectedRange = self.textView.selectedRange()
+          let oldLength = (self.textView.string as NSString).length
+          
           self.textView.string = text
           self.placeholderLabel.isHidden = !text.isEmpty
+          
+          // Restore cursor position, adjusting if text length changed
+          let newLength = (text as NSString).length
+          let lengthDiff = newLength - oldLength
+          let newLocation = max(0, min(selectedRange.location + lengthDiff, newLength))
+          self.textView.setSelectedRange(NSRange(location: newLocation, length: 0))
+          
           self.notifyHeightChange()
           result(nil)
         } else {

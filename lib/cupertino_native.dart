@@ -15,6 +15,7 @@ export 'components/input.dart';
 export 'components/navigation_bar.dart';
 export 'components/glass_effect_container.dart';
 export 'components/liquid_glass_text_field.dart';
+export 'components/liquid_glass_icon_container.dart';
 
 import 'package:flutter/services.dart';
 import 'cupertino_native_platform_interface.dart';

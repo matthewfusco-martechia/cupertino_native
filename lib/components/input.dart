@@ -160,7 +160,9 @@ class CNInputState extends State<CNInput> {
     // Approximate line height based on font size
     final lineHeight = widget.fontSize * 1.2;
     const verticalPadding = 20.0; // 8 top + 8 bottom + 4 buffer for text rendering
-    return lineHeight * widget.maxLines + verticalPadding;
+    final calculated = lineHeight * widget.maxLines + verticalPadding;
+    // Ensure maxHeight is never less than minHeight
+    return calculated < widget.minHeight ? widget.minHeight : calculated;
   }
 
   @override
@@ -259,6 +261,7 @@ class CNInputState extends State<CNInput> {
   }
 
   bool _isUpdatingFromNative = false;
+  bool _isFocused = false;
   
   Future<dynamic> _onMethodCall(MethodCall call) async {
     switch (call.method) {
@@ -277,6 +280,7 @@ class CNInputState extends State<CNInput> {
         break;
       case 'focusChanged':
         final focused = call.arguments['focused'] as bool? ?? false;
+        _isFocused = focused;
         if (widget.onFocusChanged != null) {
           widget.onFocusChanged!(focused);
         }
@@ -305,7 +309,8 @@ class CNInputState extends State<CNInput> {
     if (ch == null) return;
 
     // Only sync text if changed FROM Flutter (not from native)
-    if (!_isUpdatingFromNative && _lastText != _controller.text) {
+    // AND only when not focused - never interfere while user is typing
+    if (!_isUpdatingFromNative && !_isFocused && _lastText != _controller.text) {
       await ch.invokeMethod('setText', {'text': _controller.text});
       _lastText = _controller.text;
     }

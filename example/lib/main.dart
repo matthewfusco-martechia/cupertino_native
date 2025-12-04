@@ -12,9 +12,10 @@ import 'demos/glass_effect_container.dart';
 import 'demos/input.dart';
 import 'demos/liquid_glass_text_field.dart';
 import 'demos/liquid_glass_container_2_row.dart';
-import 'demos/liquid_glass_container_1_row.dart';
+// import 'demos/liquid_glass_container_1_row.dart'; // File doesn't exist
 import 'demos/liquid_glass_dialog_button.dart';
 import 'demos/liquid_glass_input_dialog_demo.dart';
+import 'demos/liquid_glass_icon_container.dart';
 
 void main() {
   runApp(const MyApp());
@@ -296,7 +297,7 @@ class HomePage extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
-                      builder: (_) => const LiquidGlassContainer2RowDemo(),
+                      builder: (_) => const LiquidGlassContainerDemo(),
                     ),
                   );
                 },
@@ -310,7 +311,7 @@ class HomePage extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
-                      builder: (_) => const LiquidGlassContainer1RowDemo(),
+                      builder: (_) => const LiquidGlassContainerDemo(), // Using same demo for now
                     ),
                   );
                 },
@@ -339,6 +340,20 @@ class HomePage extends StatelessWidget {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
                       builder: (_) => const LiquidGlassInputDialogDemo(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Icon Container (2 Icons)'),
+                leading: CNIcon(
+                  symbol: CNSymbol('square.grid.2x2.fill', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassIconContainerDemo(),
                     ),
                   );
                 },

@@ -148,6 +148,11 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     ])
     
     setupMethodChannel()
+    
+    // Center text vertically after layout
+    DispatchQueue.main.async { [weak self] in
+      self?.centerTextVerticallyIfNeeded()
+    }
   }
   
   private func setupMethodChannel() {
@@ -159,8 +164,19 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
       switch call.method {
       case "setText":
         if let args = call.arguments as? [String: Any], let text = args["text"] as? String {
+          // Preserve cursor position when setting text
+          let selectedRange = self.textView.selectedRange
+          let oldLength = (self.textView.text as NSString?)?.length ?? 0
+          
           self.textView.text = text
           self.placeholderLabel.isHidden = !text.isEmpty
+          
+          // Restore cursor position, adjusting if text length changed
+          let newLength = (text as NSString).length
+          let lengthDiff = newLength - oldLength
+          let newLocation = max(0, min(selectedRange.location + lengthDiff, newLength))
+          self.textView.selectedRange = NSRange(location: newLocation, length: 0)
+          
           self.updateHeight()
           result(nil)
         } else {
@@ -279,17 +295,23 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     // Send text to Flutter
     channel.invokeMethod("textChanged", arguments: ["text": textView.text ?? ""])
     
-    // Update height and centering
+    // Update height
     updateHeight()
-    centerTextVerticallyIfNeeded()
     
-    // Ensure cursor is visible
-    scrollToCursor()
+    // Delay centering to allow Flutter to update container size first
+    // Use multiple delays to handle async Flutter layout
+    DispatchQueue.main.async { [weak self] in
+      self?.container.layoutIfNeeded()
+      self?.centerTextVerticallyIfNeeded()
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+      self?.centerTextVerticallyIfNeeded()
+    }
   }
   
   func textViewDidBeginEditing(_ textView: UITextView) {
     channel.invokeMethod("focusChanged", arguments: ["focused": true])
-    // Keep text centered while editing if content is small
+    // Keep vertical centering when editing starts
     centerTextVerticallyIfNeeded()
   }
   

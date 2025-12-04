@@ -16,34 +16,22 @@ import 'package:flutter/cupertino.dart';
 // 6. Click "Add" and wait for rebuild
 //
 // Without this package, the widget will NOT compile!
-//
-// TO DISMISS KEYBOARD WHEN TAPPING OUTSIDE:
-// Wrap your page's main content with GestureDetector:
-//   GestureDetector(
-//     onTap: () => FocusScope.of(context).unfocus(),
-//     child: YourPageContent(),
-//   )
-//
-// HOW TO USE onSubmit TO ADD TEXT TO PAGE STATE:
-// 1. In FlutterFlow, select this widget
-// 2. Go to Actions > onSubmit
-// 3. Add action: "Update Page State"
-// 4. Select your page state variable (e.g., messages list)
-// 5. Use "Action Output" or the callback parameter to get the submitted text
 // ============================================================================
 import 'package:cupertino_native/cupertino_native.dart';
 
 /// A liquid glass text field widget for FlutterFlow.
 ///
-/// This widget creates a modern, translucent input field with native iOS
-/// liquid glass effect, similar to the iMessage input field.
+/// The trailing send button automatically appears when text is entered
+/// and disappears when the field is empty.
 ///
 /// ## Parameters:
 /// - [width]: Required width of the widget
 /// - [height]: Required minimum height of the widget
 /// - [placeholder]: Placeholder text when empty
 /// - [isDarkMode]: Toggle between dark and light mode
-/// - [trailingIconColor]: Color of the send button
+/// - [trailingIconColor]: Tint/background color of the send button
+/// - [trailingIconInnerColor]: Color of the icon symbol itself
+/// - [trailingIconName]: SF Symbol name (default: "arrow.up")
 /// - [onSubmit]: Action when send button is pressed - receives the text value!
 /// - [onTextChanged]: Action when text changes
 /// - [onFocusChanged]: Action when focus changes
@@ -56,6 +44,8 @@ class LiquidGlassTextField extends StatefulWidget {
     this.placeholder = 'Message',
     this.isDarkMode = false,
     this.trailingIconColor,
+    this.trailingIconInnerColor,
+    this.trailingIconName,
     this.onSubmit,
     this.onTextChanged,
     this.onFocusChanged,
@@ -77,12 +67,18 @@ class LiquidGlassTextField extends StatefulWidget {
   /// Whether to use dark mode styling.
   final bool isDarkMode;
 
-  /// The color of the trailing send button icon.
+  /// The tint/background color of the trailing send button.
   final Color? trailingIconColor;
+
+  /// The color of the icon symbol itself (e.g., the arrow). Defaults to white.
+  final Color? trailingIconInnerColor;
+
+  /// SF Symbol name for the trailing icon. Defaults to "arrow.up".
+  /// Examples: "paperplane.fill", "checkmark", "plus", "arrow.right"
+  final String? trailingIconName;
 
   /// Action to perform when the send button is pressed.
   /// Receives the current text value as a parameter.
-  /// Use this to append the text to your page state!
   final Future<dynamic> Function(String text)? onSubmit;
 
   /// Action to perform when the text changes.
@@ -101,8 +97,6 @@ class LiquidGlassTextField extends StatefulWidget {
   final bool clearOnSubmit;
 
   /// Initial text to prefill the text field.
-  /// Bind this to a page state variable to control the text from outside.
-  /// When this value changes, the text field will update.
   final String? initialText;
 
   @override
@@ -115,11 +109,13 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   double _currentHeight = 50.0;
   String _currentText = '';
 
+  // Show trailing icon only when there's text
+  bool get _showTrailingIcon => _currentText.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
     _currentHeight = widget.height;
-    // Set initial text if provided
     if (widget.initialText != null && widget.initialText!.isNotEmpty) {
       _controller.text = widget.initialText!;
       _currentText = widget.initialText!;
@@ -129,7 +125,6 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   @override
   void didUpdateWidget(covariant LiquidGlassTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update text when initialText changes from outside
     if (widget.initialText != oldWidget.initialText && 
         widget.initialText != null &&
         widget.initialText != _currentText) {
@@ -145,18 +140,16 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   }
 
   double _calculateMaxHeight() {
-    const lineHeight = 17.0 * 1.2; // fontSize * line height multiplier
-    const verticalPadding = 20.0; // 8 top + 8 bottom + 4 buffer for text rendering
+    const lineHeight = 17.0 * 1.2;
+    const verticalPadding = 20.0;
     return lineHeight * widget.maxLines + verticalPadding;
   }
 
   void _handleSubmit() {
     final text = _currentText;
     if (text.isNotEmpty) {
-      // Call the onSubmit callback with the text
       widget.onSubmit?.call(text);
       
-      // Clear the text field if clearOnSubmit is true
       if (widget.clearOnSubmit) {
         _controller.clear();
         setState(() {
@@ -165,7 +158,6 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
         });
       }
       
-      // Dismiss keyboard after submit - call native unfocus
       _inputKey.currentState?.unfocus();
     }
   }
@@ -174,7 +166,10 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   Widget build(BuildContext context) {
     final effectiveCornerRadius = widget.cornerRadius ?? widget.height / 2;
     final effectiveTrailingColor =
-        widget.trailingIconColor ?? const Color(0xFF007AFF); // iOS blue
+        widget.trailingIconColor ?? const Color(0xFF007AFF);
+    final effectiveIconInnerColor =
+        widget.trailingIconInnerColor ?? const Color(0xFFFFFFFF);
+    final effectiveIconName = widget.trailingIconName ?? 'arrow.up';
 
     final currentHeight = _currentHeight.clamp(widget.height, _calculateMaxHeight());
     
@@ -194,28 +189,32 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
             cornerRadius: effectiveCornerRadius,
             interactive: true,
             child: Row(
-              // Always stretch to fill, let each child manage its own alignment
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Text Input - fills the available space
+                // Text Input
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 12.0, right: 4.0),
+                    padding: EdgeInsets.only(
+                      left: 12.0,
+                      right: _showTrailingIcon ? 4.0 : 12.0,
+                    ),
                     child: CNInput(
                       key: _inputKey,
                       controller: _controller,
                       placeholder: widget.placeholder,
-                      backgroundColor: const Color(0x00000000), // transparent
+                      backgroundColor: const Color(0x00000000),
                       borderStyle: CNInputBorderStyle.none,
-                      minHeight: widget.height - 8, // Slight reduction for container padding
+                      minHeight: widget.height - 8,
                       textColor: widget.isDarkMode
-                          ? const Color(0xFFFFFFFF) // white
-                          : const Color(0xFF000000), // black
+                          ? const Color(0xFFFFFFFF)
+                          : const Color(0xFF000000),
                       maxLines: widget.maxLines,
                       keyboardType: TextInputType.multiline,
                       textInputAction: TextInputAction.newline,
                       onChanged: (text) {
-                        _currentText = text;
+                        setState(() {
+                          _currentText = text;
+                        });
                         widget.onTextChanged?.call(text);
                       },
                       onFocusChanged: (focused) {
@@ -234,29 +233,30 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                     ),
                   ),
                 ),
-                // Trailing Send Button - aligned to bottom when multiline, center otherwise
-                Align(
-                  alignment: currentHeight > widget.height 
-                      ? Alignment.bottomCenter 
-                      : Alignment.center,
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: 8.0,
-                      bottom: currentHeight > widget.height ? 8.0 : 0.0,
-                    ),
-                    child: CNButton.icon(
-                      icon: const CNSymbol(
-                        'arrow.up',
-                        size: 16,
-                        color: Color(0xFFFFFFFF), // white
+                // Trailing Send Button - only shown when text is not empty
+                if (_showTrailingIcon)
+                  Align(
+                    alignment: currentHeight > widget.height 
+                        ? Alignment.bottomCenter 
+                        : Alignment.center,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: 8.0,
+                        bottom: currentHeight > widget.height ? 8.0 : 0.0,
                       ),
-                      size: 32,
-                      style: CNButtonStyle.prominentGlass,
-                      tint: effectiveTrailingColor,
-                      onPressed: _handleSubmit,
+                      child: CNButton.icon(
+                        icon: CNSymbol(
+                          effectiveIconName,
+                          size: 16,
+                          color: effectiveIconInnerColor,
+                        ),
+                        size: 32,
+                        style: CNButtonStyle.prominentGlass,
+                        tint: effectiveTrailingColor,
+                        onPressed: _handleSubmit,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -265,16 +265,13 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     );
   }
 
-  /// Get the current text value.
   String get text => _currentText;
 
-  /// Set the text value programmatically.
   set text(String value) {
     _controller.text = value;
     _currentText = value;
   }
 
-  /// Clear the text field.
   void clear() {
     _controller.clear();
     _currentText = '';
