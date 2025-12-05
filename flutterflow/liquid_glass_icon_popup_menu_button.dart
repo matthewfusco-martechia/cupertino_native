@@ -115,7 +115,8 @@ class _LiquidGlassIconPopupMenuButtonState
         enabled: true,
       ));
     }
-    return entries;
+    // Reverse to fix native menu display order
+    return entries.reversed.toList();
   }
 
   @override
