@@ -19,6 +19,7 @@ class CupertinoSlideableListTile extends StatefulWidget {
     this.tileBackgroundColor,
     this.actionLabelColor,
     this.onTilePressed,
+    this.borderRadius = 0.0,
   });
 
   /// Primary text displayed on the first line
@@ -56,6 +57,9 @@ class CupertinoSlideableListTile extends StatefulWidget {
 
   /// Callback when the tile itself is tapped (not the swipe actions)
   final VoidCallback? onTilePressed;
+
+  /// Border radius for the tile container
+  final double borderRadius;
 
   @override
   State<CupertinoSlideableListTile> createState() =>
@@ -152,17 +156,22 @@ class _CupertinoSlideableListTileState
     // Label color
     final labelColor = widget.actionLabelColor ?? CupertinoColors.label.resolveFrom(context);
 
-    return SizedBox(
-      height: widget.height,
-      width: double.infinity,
-      child: Stack(
-        children: [
-          // Actions Background & Items
-          if (_dragOffset < -0.5 && !_hideActions) 
-            Positioned.fill(
-              child: Container(
-                color: actionsBgColor,
-                alignment: Alignment.centerRight,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(widget.borderRadius),
+      child: SizedBox(
+        height: widget.height,
+        width: double.infinity,
+        child: Stack(
+          children: [
+            // Actions Background & Items
+            if (_dragOffset < -0.5 && !_hideActions) 
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: actionsBgColor,
+                    borderRadius: BorderRadius.circular(widget.borderRadius),
+                  ),
+                  alignment: Alignment.centerRight,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: widget.actions.map((action) {
@@ -224,7 +233,10 @@ class _CupertinoSlideableListTileState
               child: Container(
                 width: double.infinity,
                 height: widget.height,
-                color: tileBgColor,
+                decoration: BoxDecoration(
+                  color: tileBgColor,
+                  borderRadius: BorderRadius.circular(widget.borderRadius),
+                ),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
@@ -257,6 +269,7 @@ class _CupertinoSlideableListTileState
             ),
           ),
         ],
+        ),
       ),
     );
   }

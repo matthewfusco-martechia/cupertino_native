@@ -132,17 +132,15 @@ class _CupertinoSlideableListTileDemoPageState
             ),
             Expanded(
               child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _conversations.length,
-                separatorBuilder: (context, index) => Container(
-                  height: 1,
-                  color: CupertinoColors.separator,
-                  margin: const EdgeInsets.only(left: 16),
-                ),
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final item = _conversations[index];
                   return CupertinoSlideableListTile(
                     title: item.title,
                     subtitle: item.subtitle,
+                    borderRadius: 12,
                     onTilePressed: () => _handleTilePressed(index),
                     actions: [
                       SlideAction(

@@ -39,6 +39,7 @@ class CupertinoSlideableListTile extends StatefulWidget {
     this.action2Callback,
     this.actionsBackgroundColor,
     this.onTilePressed,
+    this.borderRadius,
   });
 
   final double? width;
@@ -97,6 +98,9 @@ class CupertinoSlideableListTile extends StatefulWidget {
 
   /// Callback when the tile itself is tapped (not the swipe actions)
   final Future<dynamic> Function()? onTilePressed;
+
+  /// Border radius for the tile container (defaults to 0)
+  final double? borderRadius;
 
   @override
   State<CupertinoSlideableListTile> createState() =>
@@ -223,18 +227,25 @@ class _CupertinoSlideableListTileState
 
     final labelColor = widget.actionLabelColor ?? 
         FlutterFlowTheme.of(context).primaryText;
+    
+    final radius = widget.borderRadius ?? 0.0;
 
-    return SizedBox(
-      width: widget.width ?? double.infinity,
-      height: defaultHeight,
-      child: Stack(
-        children: [
-          // Actions Background & Items
-          if (_actionCount > 0 && _dragOffset < -0.5 && !_hideActions)
-            Positioned.fill(
-              child: Container(
-                color: actionsBgColor,
-                alignment: Alignment.centerRight,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: SizedBox(
+        width: widget.width ?? double.infinity,
+        height: defaultHeight,
+        child: Stack(
+          children: [
+            // Actions Background & Items
+            if (_actionCount > 0 && _dragOffset < -0.5 && !_hideActions)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: actionsBgColor,
+                    borderRadius: BorderRadius.circular(radius),
+                  ),
+                  alignment: Alignment.centerRight,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -274,7 +285,10 @@ class _CupertinoSlideableListTileState
               child: Container(
                 width: double.infinity,
                 height: defaultHeight,
-                color: tileBgColor,
+                decoration: BoxDecoration(
+                  color: tileBgColor,
+                  borderRadius: BorderRadius.circular(radius),
+                ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,6 +320,7 @@ class _CupertinoSlideableListTileState
             ),
           ),
         ],
+        ),
       ),
     );
   }
