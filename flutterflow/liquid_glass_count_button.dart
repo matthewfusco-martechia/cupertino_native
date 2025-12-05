@@ -112,47 +112,51 @@ class _LiquidGlassCountButtonState extends State<LiquidGlassCountButton>
     final symbolName = widget.symbolName ?? 'chevron.left';
     final radius = widget.borderRadius ?? (buttonHeight / 2);
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _controller.forward(),
-      onTapUp: (_) => _controller.reverse(),
-      onTapCancel: () => _controller.reverse(),
-      onTap: () async {
-        if (widget.onTap != null) {
-          await widget.onTap!();
-        }
-      },
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: CNGlassEffectContainer(
-          glassStyle: CNGlassStyle.regular,
-          cornerRadius: radius,
-          height: buttonHeight,
-          interactive: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Chevron Icon
-                CNIcon(
-                  symbol: CNSymbol(
-                    symbolName,
-                    size: 18,
-                    color: iconColor,
+    // Use UnconstrainedBox to allow the button to size itself based on content
+    // This prevents layout errors when placed in unbounded width contexts (like Row)
+    return UnconstrainedBox(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _controller.forward(),
+        onTapUp: (_) => _controller.reverse(),
+        onTapCancel: () => _controller.reverse(),
+        onTap: () async {
+          if (widget.onTap != null) {
+            await widget.onTap!();
+          }
+        },
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: CNGlassEffectContainer(
+            glassStyle: CNGlassStyle.regular,
+            cornerRadius: radius,
+            height: buttonHeight,
+            interactive: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Chevron Icon
+                  CNIcon(
+                    symbol: CNSymbol(
+                      symbolName,
+                      size: 18,
+                      color: iconColor,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Count Text
-                Text(
-                  widget.count > 99 ? '99+' : widget.count.toString(),
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w400,
+                  const SizedBox(width: 8),
+                  // Count Text
+                  Text(
+                    widget.count > 99 ? '99+' : widget.count.toString(),
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
