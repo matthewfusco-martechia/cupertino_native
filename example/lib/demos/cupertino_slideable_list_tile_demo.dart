@@ -80,6 +80,22 @@ class _CupertinoSlideableListTileDemoPageState
     );
   }
 
+  void _handleTilePressed(int index) {
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Tile Pressed'),
+        content: Text('You tapped: "${_conversations[index].title}"'),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('OK'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
@@ -104,7 +120,7 @@ class _CupertinoSlideableListTileDemoPageState
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Swipe left on any item to reveal actions. Supports rename and delete actions.',
+                    'Tap a tile to open it. Swipe left to reveal actions.',
                     style: TextStyle(
                       fontSize: 14,
                       color: CupertinoColors.systemGrey,
@@ -127,6 +143,7 @@ class _CupertinoSlideableListTileDemoPageState
                   return CupertinoSlideableListTile(
                     title: item.title,
                     subtitle: item.subtitle,
+                    onTilePressed: () => _handleTilePressed(index),
                     actions: [
                       SlideAction(
                         label: 'Rename',
