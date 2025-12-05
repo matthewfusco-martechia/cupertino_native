@@ -73,6 +73,22 @@ class _PopupMenuButtonDemoPageState extends State<PopupMenuButtonDemoPage> {
               ],
             ),
             const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Liquid Glass Icon'),
+                Spacer(),
+                LiquidGlassIconPopupMenuButton(
+                  iconName: 'ellipsis.circle.fill',
+                  items: items,
+                  onSelected: (index) {
+                    setState(() => _lastSelected = index);
+                  },
+                  tint: CupertinoColors.systemPurple,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             if (_lastSelected != null)
               Center(child: Text('Selected index: $_lastSelected')),
           ],
