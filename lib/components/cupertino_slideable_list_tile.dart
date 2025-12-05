@@ -102,6 +102,17 @@ class _CupertinoSlideableListTileState
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant CupertinoSlideableListTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset state when the widget receives new data (e.g., list item recycled)
+    if (oldWidget.title != widget.title || oldWidget.subtitle != widget.subtitle) {
+      _dragOffset = 0.0;
+      _hideActions = false;
+      _controller.reset();
+    }
+  }
+
   double get _maxDragExtent => widget.actions.length * _actionWidth;
 
   void _handleDragUpdate(DragUpdateDetails details) {
