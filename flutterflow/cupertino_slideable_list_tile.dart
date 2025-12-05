@@ -38,6 +38,7 @@ class CupertinoSlideableListTile extends StatefulWidget {
     this.action2Color,
     this.action2Callback,
     this.actionsBackgroundColor,
+    this.onTilePressed,
   });
 
   final double? width;
@@ -93,6 +94,9 @@ class CupertinoSlideableListTile extends StatefulWidget {
 
   /// Background color for the actions drawer
   final Color? actionsBackgroundColor;
+
+  /// Callback when the tile itself is tapped (not the swipe actions)
+  final Future<dynamic> Function()? onTilePressed;
 
   @override
   State<CupertinoSlideableListTile> createState() =>
@@ -263,7 +267,9 @@ class _CupertinoSlideableListTileState
             child: GestureDetector(
               onHorizontalDragUpdate: _handleDragUpdate,
               onHorizontalDragEnd: _handleDragEnd,
-              onTap: _dragOffset < 0 ? _close : null,
+              onTap: _dragOffset < 0 
+                  ? _close  // If swiped open, tap closes it
+                  : () => widget.onTilePressed?.call(),  // Otherwise trigger tile callback
               behavior: HitTestBehavior.opaque,
               child: Container(
                 width: double.infinity,
