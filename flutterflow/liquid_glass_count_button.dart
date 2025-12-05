@@ -27,6 +27,7 @@ class LiquidGlassCountButton extends StatefulWidget {
     this.iconColor,
     this.textColor,
     this.symbolName,
+    this.borderRadius,
   });
 
   final double? width;
@@ -46,6 +47,9 @@ class LiquidGlassCountButton extends StatefulWidget {
 
   /// SF Symbol name for the icon (defaults to "chevron.left")
   final String? symbolName;
+
+  /// Border radius for the button (defaults to height/2 for pill shape)
+  final double? borderRadius;
 
   @override
   State<LiquidGlassCountButton> createState() => _LiquidGlassCountButtonState();
@@ -106,6 +110,7 @@ class _LiquidGlassCountButtonState extends State<LiquidGlassCountButton>
         widget.textColor ?? FlutterFlowTheme.of(context).primaryText;
     final buttonHeight = widget.height ?? 44.0;
     final symbolName = widget.symbolName ?? 'chevron.left';
+    final radius = widget.borderRadius ?? (buttonHeight / 2);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -121,7 +126,7 @@ class _LiquidGlassCountButtonState extends State<LiquidGlassCountButton>
         scale: _scaleAnimation,
         child: CNGlassEffectContainer(
           glassStyle: CNGlassStyle.regular,
-          cornerRadius: buttonHeight / 2,
+          cornerRadius: radius,
           height: buttonHeight,
           interactive: false,
           child: Padding(
