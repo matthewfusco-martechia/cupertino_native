@@ -16,6 +16,8 @@ import 'demos/liquid_glass_container_2_row.dart';
 import 'demos/liquid_glass_dialog_button.dart';
 import 'demos/liquid_glass_input_dialog_demo.dart';
 import 'demos/liquid_glass_icon_container.dart';
+import 'demos/liquid_glass_snackbar_demo.dart';
+import 'demos/cupertino_slideable_list_tile_demo.dart';
 
 void main() {
   runApp(const MyApp());
@@ -233,6 +235,20 @@ class HomePage extends StatelessWidget {
                   );
                 },
               ),
+              CupertinoListTile(
+                title: Text('Slideable List Tile'),
+                leading: CNIcon(
+                  symbol: CNSymbol('list.bullet.rectangle', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const CupertinoSlideableListTileDemoPage(),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
           CupertinoListSection.insetGrouped(
@@ -354,6 +370,20 @@ class HomePage extends StatelessWidget {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
                       builder: (_) => const LiquidGlassIconContainerDemo(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Snackbar Notification'),
+                leading: CNIcon(
+                  symbol: CNSymbol('bell.badge.fill', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassSnackbarDemoPage(),
                     ),
                   );
                 },

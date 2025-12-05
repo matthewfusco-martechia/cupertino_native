@@ -12,9 +12,6 @@ Future<String?> _showLiquidGlassInputDialog(
   String confirmButtonText = 'Rename',
   String cancelButtonText = 'Cancel',
 }) async {
-  final TextEditingController controller =
-      TextEditingController(text: initialText);
-
   return showGeneralDialog<String>(
     context: context,
     barrierDismissible: true,
@@ -22,111 +19,15 @@ Future<String?> _showLiquidGlassInputDialog(
     barrierColor: Colors.black.withValues(alpha: 0.5),
     transitionDuration: const Duration(milliseconds: 300),
     pageBuilder: (ctx, anim1, anim2) {
-      return Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(
-          child: Container(
-            width: 300,
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            child: Stack(
-              children: [
-                // Glass Background
-                Positioned.fill(
-                  child: CNGlassEffectContainer(
-                    glassStyle: CNGlassStyle.regular, // Use regular with heavy tint
-                    cornerRadius: 24,
-                    // Deep charcoal tint to match screenshot
-                    tint: const Color(0xFF1C1C1E).withValues(alpha: 0.75),
-                    interactive: true, // Make the background interactive/liquid
-                    child: const SizedBox(),
-                  ),
-                ),
-                // Content
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          decoration: TextDecoration.none,
-                          fontFamily: 'SF Pro Text',
-                          letterSpacing: -0.4,
-                        ),
-                      ),
-                      if (message != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          message,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.white70,
-                            decoration: TextDecoration.none,
-                            fontFamily: 'SF Pro Text',
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      // Custom Input Field
-                      Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF3A3A3C).withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: CupertinoTextField(
-                          controller: controller,
-                          placeholder: placeholder,
-                          placeholderStyle: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.3),
-                            fontFamily: 'SF Pro Text',
-                          ),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'SF Pro Text',
-                            fontSize: 17,
-                          ),
-                          decoration: null, // Remove default border
-                          cursorColor: const Color(0xFF0A84FF), // iOS Blue
-                          autofocus: true,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // Action Buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _DialogButton(
-                              text: cancelButtonText,
-                              onPressed: () => Navigator.pop(ctx),
-                              isPrimary: false,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _DialogButton(
-                              text: confirmButtonText,
-                              onPressed: () =>
-                                  Navigator.pop(ctx, controller.text),
-                              isPrimary: true,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      return LiquidGlassInputDialog(
+        title: title,
+        message: message,
+        initialText: initialText,
+        placeholder: placeholder,
+        confirmButtonText: confirmButtonText,
+        cancelButtonText: cancelButtonText,
+        onConfirm: (text) => Navigator.of(ctx).pop(text),
+        onCancel: () => Navigator.of(ctx).pop(),
       );
     },
     transitionBuilder: (ctx, anim1, anim2, child) {
@@ -146,57 +47,6 @@ Future<String?> _showLiquidGlassInputDialog(
   );
 }
 
-class _DialogButton extends StatelessWidget {
-  const _DialogButton({
-    required this.text,
-    required this.onPressed,
-    required this.isPrimary,
-  });
-
-  final String text;
-  final VoidCallback onPressed;
-  final bool isPrimary;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CNGlassEffectContainer(
-              cornerRadius: 14,
-              glassStyle: CNGlassStyle.regular,
-              // Darker tint for buttons to stand out from dialog background
-              tint: isPrimary
-                  ? const Color(0xFF3A3A3C).withValues(alpha: 0.8)
-                  : const Color(0xFF2C2C2E).withValues(alpha: 0.5),
-              interactive: true,
-              onTap: onPressed,
-              child: const SizedBox(),
-            ),
-          ),
-          IgnorePointer(
-            child: Center(
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w400,
-                  color: Colors.white,
-                  decoration: TextDecoration.none,
-                  fontFamily: 'SF Pro Text',
-                  letterSpacing: -0.4,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class LiquidGlassInputDialogDemo extends StatefulWidget {
   const LiquidGlassInputDialogDemo({super.key});
 
@@ -211,6 +61,9 @@ class _LiquidGlassInputDialogDemoState
 
   @override
   Widget build(BuildContext context) {
+    final isDark = CupertinoTheme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : CupertinoColors.label;
+
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
         middle: Text('Input Dialog Action'),
@@ -237,56 +90,25 @@ class _LiquidGlassInputDialogDemoState
                       .navLargeTitleTextStyle,
                 ),
                 const SizedBox(height: 48),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: CNGlassEffectContainer(
-                          cornerRadius: 16.0,
-                          glassStyle: CNGlassStyle.regular,
-                          interactive: true,
-                          onTap: () async {
-                            final newName = await _showLiquidGlassInputDialog(
-                              context,
-                              title: 'Rename Chat',
-                              // message: 'Enter a new name for this project.',
-                              initialText: _chatName,
-                              placeholder: 'Chat Name',
-                              confirmButtonText: 'Rename',
-                            );
+                // Trigger Button
+                CNButton(
+                  label: 'Rename Chat',
+                  style: CNButtonStyle.glass,
+                  onPressed: () async {
+                    final newName = await _showLiquidGlassInputDialog(
+                      context,
+                      title: 'Rename Conversation',
+                      initialText: _chatName,
+                      placeholder: 'Conversation name',
+                      confirmButtonText: 'Rename',
+                    );
 
-                            if (newName != null && newName.isNotEmpty) {
-                              setState(() {
-                                _chatName = newName;
-                              });
-                            }
-                          },
-                          child: const SizedBox(),
-                        ),
-                      ),
-                      IgnorePointer(
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: Text(
-                              'Rename Chat',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 17.0,
-                                fontWeight: FontWeight.w600,
-                                color: CupertinoTheme.of(context).brightness == Brightness.dark
-                                    ? Colors.white
-                                    : CupertinoColors.label,
-                                fontFamily: 'SF Pro Text',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    if (newName != null && newName.isNotEmpty) {
+                      setState(() {
+                        _chatName = newName;
+                      });
+                    }
+                  },
                 ),
               ],
             ),

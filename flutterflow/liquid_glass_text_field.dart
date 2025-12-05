@@ -213,7 +213,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                       textInputAction: TextInputAction.newline,
                       onChanged: (text) {
                         setState(() {
-                          _currentText = text;
+                        _currentText = text;
                         });
                         widget.onTextChanged?.call(text);
                       },
@@ -235,28 +235,28 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                 ),
                 // Trailing Send Button - only shown when text is not empty
                 if (_showTrailingIcon)
-                  Align(
-                    alignment: currentHeight > widget.height 
-                        ? Alignment.bottomCenter 
-                        : Alignment.center,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: 8.0,
-                        bottom: currentHeight > widget.height ? 8.0 : 0.0,
-                      ),
-                      child: CNButton.icon(
+                Align(
+                  alignment: currentHeight > widget.height 
+                      ? Alignment.bottomCenter 
+                      : Alignment.center,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: 8.0,
+                      bottom: currentHeight > widget.height ? 8.0 : 0.0,
+                    ),
+                    child: CNButton.icon(
                         icon: CNSymbol(
                           effectiveIconName,
-                          size: 16,
+                        size: 16,
                           color: effectiveIconInnerColor,
-                        ),
-                        size: 32,
-                        style: CNButtonStyle.prominentGlass,
-                        tint: effectiveTrailingColor,
-                        onPressed: _handleSubmit,
                       ),
+                      size: 32,
+                      style: CNButtonStyle.prominentGlass,
+                      tint: effectiveTrailingColor,
+                      onPressed: _handleSubmit,
                     ),
                   ),
+                ),
               ],
             ),
           ),

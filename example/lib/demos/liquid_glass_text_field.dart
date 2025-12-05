@@ -116,8 +116,8 @@ class _LiquidGlassTextFieldDemoPageState
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: CupertinoColors.white,
-                  ),
+                      color: CupertinoColors.white,
+                    ),
                 ),
                 const SizedBox(height: 12),
                 LiquidGlassTextField(
