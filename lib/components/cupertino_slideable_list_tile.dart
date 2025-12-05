@@ -88,6 +88,10 @@ class _CupertinoSlideableListTileState
     _controller.addListener(() {
       setState(() {
         _dragOffset = _animation.value;
+        // Reset hideActions when tile is fully closed
+        if (_dragOffset == 0.0) {
+          _hideActions = false;
+        }
       });
     });
   }
