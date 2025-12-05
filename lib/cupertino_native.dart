@@ -17,6 +17,7 @@ export 'components/glass_effect_container.dart';
 export 'components/liquid_glass_text_field.dart';
 export 'components/liquid_glass_icon_container.dart';
 export 'components/liquid_glass_icon_popup_menu_button.dart';
+export 'components/cupertino_icon_button.dart';
 
 import 'package:flutter/services.dart';
 import 'cupertino_native_platform_interface.dart';
