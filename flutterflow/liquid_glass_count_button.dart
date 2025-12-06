@@ -131,7 +131,7 @@ class _LiquidGlassCountButtonState extends State<LiquidGlassCountButton>
             glassStyle: CNGlassStyle.regular,
             cornerRadius: radius,
             height: buttonHeight,
-            interactive: false,
+            interactive: true,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
