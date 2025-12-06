@@ -55,30 +55,8 @@ class LiquidGlassCountButton extends StatefulWidget {
   State<LiquidGlassCountButton> createState() => _LiquidGlassCountButtonState();
 }
 
-class _LiquidGlassCountButtonState extends State<LiquidGlassCountButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
+class _LiquidGlassCountButtonState extends State<LiquidGlassCountButton> {
   bool _isHidden = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 100),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   void _checkModalStatus() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -112,52 +90,43 @@ class _LiquidGlassCountButtonState extends State<LiquidGlassCountButton>
     final symbolName = widget.symbolName ?? 'chevron.left';
     final radius = widget.borderRadius ?? (buttonHeight / 2);
 
-    // Use UnconstrainedBox to allow the button to size itself based on content
-    // This prevents layout errors when placed in unbounded width contexts (like Row)
-    return UnconstrainedBox(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => _controller.forward(),
-        onTapUp: (_) => _controller.reverse(),
-        onTapCancel: () => _controller.reverse(),
-        onTap: () async {
-          if (widget.onTap != null) {
-            await widget.onTap!();
-          }
-        },
-        child: ScaleTransition(
-          scale: _scaleAnimation,
-          child: CNGlassEffectContainer(
-            glassStyle: CNGlassStyle.regular,
-            cornerRadius: radius,
-            height: buttonHeight,
-            interactive: true,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Chevron Icon
-                  CNIcon(
-                    symbol: CNSymbol(
-                      symbolName,
-                      size: 18,
-                      color: iconColor,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Count Text
-                  Text(
-                    widget.count > 99 ? '99+' : widget.count.toString(),
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ],
+    // GestureDetector handles tap, CNGlassEffectContainer handles liquid glass physics
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () async {
+        if (widget.onTap != null) {
+          await widget.onTap!();
+        }
+      },
+      child: CNGlassEffectContainer(
+        glassStyle: CNGlassStyle.regular,
+        cornerRadius: radius,
+        height: buttonHeight,
+        interactive: true,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Chevron Icon
+              CNIcon(
+                symbol: CNSymbol(
+                  symbolName,
+                  size: 18,
+                  color: iconColor,
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              // Count Text
+              Text(
+                widget.count > 99 ? '99+' : widget.count.toString(),
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
           ),
         ),
       ),
