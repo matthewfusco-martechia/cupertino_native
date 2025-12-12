@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:cupertino_native/cupertino_native.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:permission_handler/permission_handler.dart';
 
 /// Recording states for voice input
 enum _RecordingState {
@@ -197,35 +196,6 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
     });
   }
 
-  /// Show settings dialog when permission is permanently denied
-  Future<void> _showPermissionDialog() async {
-    if (!mounted) return;
-    
-    await showCupertinoDialog(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Microphone Access Required'),
-        content: const Text(
-          'To enable voice input, please allow microphone access in Settings.',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('Cancel'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            child: const Text('Open Settings'),
-            onPressed: () {
-              Navigator.of(context).pop();
-              openAppSettings();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Handle starting voice recording
   Future<void> _handleStartRecording() async {
     // Debounce: prevent multiple simultaneous recording starts
@@ -242,29 +212,6 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
     }
 
     try {
-      // Try to initialize speech - it will request permissions if needed
-      final available = await _speech.initialize();
-      
-      if (!available) {
-        // Check if it's a permanent denial
-        final micStatus = await Permission.microphone.status;
-        final speechStatus = await Permission.speech.status;
-        
-        if (micStatus.isPermanentlyDenied || speechStatus.isPermanentlyDenied) {
-          _isProcessingRecording = false;
-          await _showPermissionDialog();
-          return;
-        }
-        
-        // Otherwise show error
-        setState(() {
-          _errorMessage = 'Microphone permission denied';
-          _isProcessingRecording = false;
-        });
-        _startErrorTimer();
-        return;
-      }
-
       setState(() {
         _recordingState = _RecordingState.recording;
         _errorMessage = '';
