@@ -117,14 +117,35 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     _currentHeight = widget.minHeight;
     _controller = widget.controller ?? TextEditingController();
     _currentText = _controller.text;
+    _controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant LiquidGlassTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) {
+      oldWidget.controller?.removeListener(_onControllerChanged);
+      _controller = widget.controller ?? _controller;
+      _controller.addListener(_onControllerChanged);
+      _currentText = _controller.text;
+    }
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onControllerChanged);
     if (widget.controller == null) {
       _controller.dispose();
     }
     super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (_currentText != _controller.text) {
+      setState(() {
+        _currentText = _controller.text;
+      });
+    }
   }
 
   double _calculateMaxHeight() {
