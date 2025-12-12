@@ -58,19 +58,16 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     self.fontSize = fontSize
     self.placeholderText = placeholder
     
-    // Calculate height bounds and padding
+    // Calculate height bounds
     let lineHeight = fontSize * 1.2
-    let textVerticalPadding: CGFloat = 16 // 8 top + 8 bottom for height calculation
-    self.minHeight = lineHeight + textVerticalPadding
-    self.maxHeight = lineHeight * CGFloat(maxLines) + textVerticalPadding
+    let verticalPadding: CGFloat = 20 // Total vertical padding
+    self.minHeight = lineHeight + verticalPadding
+    self.maxHeight = lineHeight * CGFloat(maxLines) + verticalPadding
     
     super.init()
     
     container.backgroundColor = .clear
     container.clipsToBounds = true
-    
-    // Calculate vertical padding to center text in minHeight container
-    let verticalPadding = max(0, (self.minHeight - lineHeight) / 2.0)
     
     // Configure text view - SIMPLE SETUP
     textView.translatesAutoresizingMaskIntoConstraints = false
@@ -79,8 +76,8 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     textView.isEditable = enabled
     textView.isSelectable = true
     textView.delegate = self
-    // Match padding with placeholder for perfect alignment
-    textView.textContainerInset = UIEdgeInsets(top: verticalPadding, left: 4, bottom: verticalPadding, right: 4)
+    // Use consistent padding that centers text properly
+    textView.textContainerInset = UIEdgeInsets(top: 14, left: 4, bottom: 14, right: 4)
     textView.textContainer.lineFragmentPadding = 0
     
     // KEY: Always enable scrolling for multi-line - this is how iMessage works
@@ -144,10 +141,10 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
       textView.topAnchor.constraint(equalTo: container.topAnchor),
       textView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
       
-      // Placeholder sits at same position as text (using same insets)
+      // Placeholder sits at same position as text (14px top inset to match textContainerInset)
       placeholderLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 4),
       placeholderLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -4),
-      placeholderLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: verticalPadding),
+      placeholderLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
     ])
     
     setupMethodChannel()
