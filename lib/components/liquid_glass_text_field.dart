@@ -99,7 +99,7 @@ class LiquidGlassTextField extends StatefulWidget {
 }
 
 /// State for [LiquidGlassTextField].
-class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with WidgetsBindingObserver {
+class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   double _currentHeight = 50.0;
   final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
   late TextEditingController _controller;
@@ -107,8 +107,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
 
   // Voice recording state
   _RecordingState _recordingState = _RecordingState.idle;
-  final stt.SpeechToText _speech = stt.SpeechToText();
-  bool _speechInitialized = false;
+  stt.SpeechToText? _speech; // Nullable - created fresh each time
   String _errorMessage = '';
   Timer? _errorTimer;
   bool _isProcessingRecording = false;
@@ -122,124 +121,16 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
     _currentHeight = widget.minHeight;
     _controller = widget.controller ?? TextEditingController();
     _currentText = _controller.text;
-    
-    // Add lifecycle observer
-    WidgetsBinding.instance.addObserver(this);
-    
-    // Don't initialize speech here - do it lazily when mic is tapped
   }
 
   @override
   void dispose() {
-    // Remove lifecycle observer
-    WidgetsBinding.instance.removeObserver(this);
     _cleanupSpeech();
     _errorTimer?.cancel();
     if (widget.controller == null) {
       _controller.dispose();
     }
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    
-    if (!widget.enableVoiceInput) return;
-    
-    if (state == AppLifecycleState.resumed) {
-      // App resumed - reset speech state (non-blocking)
-      _handleAppResumedSync();
-    } else if (state == AppLifecycleState.paused) {
-      // App paused - stop recording (non-blocking)
-      _handleAppPausedSync();
-    }
-  }
-
-  /// Handle app resuming (synchronous, non-blocking)
-  void _handleAppResumedSync() {
-    // Reset initialization to force re-check on next mic tap
-    _speechInitialized = false;
-    
-    // If recording, stop it in a separate microtask
-    if (_recordingState == _RecordingState.recording) {
-      Future.microtask(() => _stopRecordingGracefully());
-    }
-  }
-
-  /// Handle app pausing (synchronous, non-blocking)
-  void _handleAppPausedSync() {
-    // Stop recording in a separate microtask
-    if (_recordingState == _RecordingState.recording) {
-      Future.microtask(() => _stopRecordingGracefully());
-    }
-  }
-
-  /// Gracefully stop recording without crashing
-  Future<void> _stopRecordingGracefully() async {
-    try {
-      if (_speech.isListening) {
-        await _speech.stop();
-      }
-    } catch (e) {
-      // Ignore errors when stopping
-    }
-    
-    if (mounted) {
-      setState(() {
-        _recordingState = _RecordingState.idle;
-        _isProcessingRecording = false;
-      });
-    }
-  }
-
-  /// Clean up speech resources
-  void _cleanupSpeech() {
-    try {
-      if (_speechInitialized && _speech.isListening) {
-        _speech.stop();
-      }
-    } catch (e) {
-      // Ignore cleanup errors
-    }
-  }
-
-  /// Initialize speech recognition with timeout
-  Future<bool> _initializeSpeechSafely() async {
-    if (_speechInitialized && _speech.isAvailable) {
-      return true; // Already initialized and available
-    }
-    
-    try {
-      final result = await _speech.initialize(
-        onError: (error) {
-          if (mounted) {
-            setState(() {
-              _recordingState = _RecordingState.idle;
-              _errorMessage = 'Speech error: ${error.errorMsg}';
-              _isProcessingRecording = false;
-            });
-            _startErrorTimer();
-          }
-        },
-        onStatus: (status) {
-          if (status == 'notListening' && 
-              _recordingState == _RecordingState.recording &&
-              mounted) {
-            _handleStopRecording();
-          }
-        },
-      ).timeout(
-        const Duration(seconds: 3),
-        onTimeout: () => false,
-      );
-      
-      _speechInitialized = result;
-      return result;
-    } catch (e) {
-      _speechInitialized = false;
-      return false;
-    }
   }
 
   /// Start the error timer to clear error messages after 3 seconds
@@ -254,33 +145,74 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
     });
   }
 
+  /// Clean up speech resources
+  void _cleanupSpeech() {
+    try {
+      final speech = _speech;
+      if (speech != null && speech.isListening) {
+        speech.cancel();
+      }
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+    _speech = null;
+  }
+
   /// Handle starting voice recording
   Future<void> _handleStartRecording() async {
     if (_isProcessingRecording) return;
     _isProcessingRecording = true;
 
-    // Try to initialize speech (with timeout and error handling)
-    final initialized = await _initializeSpeechSafely();
-    
-    if (!initialized) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Microphone permission required';
-          _isProcessingRecording = false;
-        });
-        _startErrorTimer();
-      }
-      return;
-    }
-
     try {
+      // Always create a fresh SpeechToText instance
+      _cleanupSpeech();
+      _speech = stt.SpeechToText();
+      
+      final speech = _speech!;
+      
+      // Initialize with short timeout
+      final available = await speech.initialize(
+        onError: (error) {
+          if (mounted) {
+            setState(() {
+              _recordingState = _RecordingState.idle;
+              _errorMessage = 'Speech error: ${error.errorMsg}';
+              _isProcessingRecording = false;
+            });
+            _startErrorTimer();
+            _cleanupSpeech();
+          }
+        },
+        onStatus: (status) {
+          if (status == 'notListening' && 
+              _recordingState == _RecordingState.recording &&
+              mounted) {
+            _handleStopRecording();
+          }
+        },
+      ).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => false,
+      );
+      
+      if (!available) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Microphone permission required';
+            _isProcessingRecording = false;
+          });
+          _startErrorTimer();
+        }
+        _cleanupSpeech();
+        return;
+      }
 
       setState(() {
         _recordingState = _RecordingState.recording;
         _errorMessage = '';
       });
 
-      await _speech.listen(
+      await speech.listen(
         onResult: (result) {
           if (result.finalResult && mounted) {
             _handleStopRecording();
@@ -298,11 +230,12 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
       if (mounted) {
         setState(() {
           _recordingState = _RecordingState.idle;
-          _errorMessage = 'Microphone permission required';
+          _errorMessage = 'Failed to start recording';
           _isProcessingRecording = false;
         });
         _startErrorTimer();
       }
+      _cleanupSpeech();
     }
   }
 
@@ -315,12 +248,23 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
     });
 
     try {
-      await _speech.stop();
+      final speech = _speech;
+      if (speech == null) {
+        setState(() {
+          _recordingState = _RecordingState.idle;
+          _isProcessingRecording = false;
+        });
+        return;
+      }
+      
+      await speech.stop();
 
-      final transcribedText = _speech.lastRecognizedWords;
+      // Get the transcribed text
+      final transcribedText = speech.lastRecognizedWords;
 
       if (mounted) {
         if (transcribedText.isNotEmpty) {
+          // Insert transcribed text into the input field
           final currentText = _controller.text;
           final newText = currentText.isEmpty
               ? transcribedText
@@ -351,15 +295,18 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
         _startErrorTimer();
       }
     }
+    
+    _cleanupSpeech();
   }
 
-  /// Handle mic button press
+  /// Handle mic button press (toggle recording)
   Future<void> _handleMicPressed() async {
     if (_recordingState == _RecordingState.idle) {
       await _handleStartRecording();
     } else if (_recordingState == _RecordingState.recording) {
       await _handleStopRecording();
     }
+    // Ignore if transcribing
   }
 
   double _calculateMaxHeight() {
@@ -411,65 +358,65 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
     return Stack(
       children: [
         AnimatedContainer(
-      duration: const Duration(milliseconds: 100),
-      height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
-      width: widget.width ?? double.infinity,
-      child: CNGlassEffectContainer(
-        height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
-        width: widget.width ?? double.infinity,
-        glassStyle: widget.glassStyle,
-        tint: widget.tint,
-        cornerRadius: effectiveCornerRadius,
-        child: Row(
-          crossAxisAlignment: _currentHeight > widget.minHeight 
-              ? CrossAxisAlignment.end 
-              : CrossAxisAlignment.center,
-          children: [
-            if (widget.leading != null) ...[
-              Padding(
-                padding: EdgeInsets.only(
-                  left: 8.0,
-                  bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
-                ),
-                child: widget.leading!,
-              ),
-            ],
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: widget.leading == null ? 16.0 : 4.0,
+          duration: const Duration(milliseconds: 100),
+          height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+          width: widget.width ?? double.infinity,
+          child: CNGlassEffectContainer(
+            height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+            width: widget.width ?? double.infinity,
+            glassStyle: widget.glassStyle,
+            tint: widget.tint,
+            cornerRadius: effectiveCornerRadius,
+            child: Row(
+              crossAxisAlignment: _currentHeight > widget.minHeight 
+                  ? CrossAxisAlignment.end 
+                  : CrossAxisAlignment.center,
+              children: [
+                if (widget.leading != null) ...[
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: 8.0,
+                      bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
+                    ),
+                    child: widget.leading!,
+                  ),
+                ],
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: widget.leading == null ? 16.0 : 4.0,
                       right: (_showTrailingIcon || widget.enableVoiceInput) ? 4.0 : 16.0,
-                ),
+                    ),
                     child: Stack(
                       children: [
                         CNInput(
-                  key: _inputKey,
-                  controller: _controller,
+                          key: _inputKey,
+                          controller: _controller,
                           placeholder: shimmerText == null ? widget.placeholder : '',
-                  backgroundColor: CupertinoColors.transparent,
-                  borderStyle: CNInputBorderStyle.none,
-                  minHeight: widget.minHeight,
-                  onSubmitted: (_) => _handleSubmit(),
-                  onChanged: (text) {
-                    setState(() {
-                      _currentText = text;
-                    });
-                    widget.onChanged?.call(text);
-                  },
-                  onFocusChanged: widget.onFocusChanged,
+                          backgroundColor: CupertinoColors.transparent,
+                          borderStyle: CNInputBorderStyle.none,
+                          minHeight: widget.minHeight,
+                          onSubmitted: (_) => _handleSubmit(),
+                          onChanged: (text) {
+                            setState(() {
+                              _currentText = text;
+                            });
+                            widget.onChanged?.call(text);
+                          },
+                          onFocusChanged: widget.onFocusChanged,
                           textColor: shimmerText != null
                               ? CupertinoColors.label.withValues(alpha: 0.0)
                               : CupertinoColors.label,
-                  maxLines: widget.maxLines,
-                  keyboardType: TextInputType.multiline,
-                  textInputAction: TextInputAction.newline,
-                  onHeightChanged: (height) {
-                    if (mounted) {
-                      setState(() {
-                        _currentHeight = height.clamp(widget.minHeight, _calculateMaxHeight());
-                      });
-                    }
-                  },
+                          maxLines: widget.maxLines,
+                          keyboardType: TextInputType.multiline,
+                          textInputAction: TextInputAction.newline,
+                          onHeightChanged: (height) {
+                            if (mounted) {
+                              setState(() {
+                                _currentHeight = height.clamp(widget.minHeight, _calculateMaxHeight());
+                              });
+                            }
+                          },
                         ),
                         // Shimmer text overlay
                         if (shimmerText != null)
@@ -489,28 +436,28 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
                             ),
                           ),
                       ],
-                ),
-              ),
-            ),
-                // Trailing Send Button or Mic Button
-            if (_showTrailingIcon) ...[
-              Padding(
-                padding: EdgeInsets.only(
-                  right: 8.0,
-                  bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
-                ),
-                child: CNButton.icon(
-                  icon: CNSymbol(
-                    effectiveIconName,
-                    size: 16,
-                    color: effectiveIconInnerColor,
+                    ),
                   ),
-                  size: 32,
-                  style: CNButtonStyle.prominentGlass,
-                  tint: effectiveTrailingColor,
-                  onPressed: _handleSubmit,
                 ),
-              ),
+                // Trailing Send Button or Mic Button
+                if (_showTrailingIcon) ...[
+                  Padding(
+                    padding: EdgeInsets.only(
+                      right: 8.0,
+                      bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
+                    ),
+                    child: CNButton.icon(
+                      icon: CNSymbol(
+                        effectiveIconName,
+                        size: 16,
+                        color: effectiveIconInnerColor,
+                      ),
+                      size: 32,
+                      style: CNButtonStyle.prominentGlass,
+                      tint: effectiveTrailingColor,
+                      onPressed: _handleSubmit,
+                    ),
+                  ),
                 ] else if (widget.enableVoiceInput) ...[
                   Padding(
                     padding: EdgeInsets.only(
@@ -533,10 +480,10 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
                       onPressed: _handleMicPressed,
                     ),
                   ),
-            ],
-          ],
-        ),
-      ),
+                ],
+              ],
+            ),
+          ),
         ),
         // Error message overlay
         if (_errorMessage.isNotEmpty)

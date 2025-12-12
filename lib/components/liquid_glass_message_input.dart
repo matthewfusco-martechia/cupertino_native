@@ -119,15 +119,14 @@ class LiquidGlassMessageInput extends StatefulWidget {
       _LiquidGlassMessageInputState();
 }
 
-class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with WidgetsBindingObserver {
+class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
   String _text = '';
   late final TextEditingController _controller =
       widget.controller ?? TextEditingController(text: widget.initialText ?? '');
 
   // Voice recording state
   _RecordingState _recordingState = _RecordingState.idle;
-  final stt.SpeechToText _speech = stt.SpeechToText();
-  bool _speechInitialized = false;
+  stt.SpeechToText? _speech; // Nullable - created fresh each time
   String _errorMessage = '';
   Timer? _errorTimer;
   bool _isProcessingRecording = false; // Debounce flag
@@ -135,16 +134,11 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with 
   @override
   void initState() {
     super.initState();
-    // Add lifecycle observer
-    WidgetsBinding.instance.addObserver(this);
-    
-    // Don't initialize speech here - do it lazily when mic is tapped
+    // Speech is initialized lazily when mic is tapped
   }
 
   @override
   void dispose() {
-    // Remove lifecycle observer
-    WidgetsBinding.instance.removeObserver(this);
     _cleanupSpeech();
     _errorTimer?.cancel();
     if (widget.controller == null) {
@@ -153,104 +147,17 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with 
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    
-    if (state == AppLifecycleState.resumed) {
-      // App resumed - reset speech state (non-blocking)
-      _handleAppResumedSync();
-    } else if (state == AppLifecycleState.paused) {
-      // App paused - stop recording (non-blocking)
-      _handleAppPausedSync();
-    }
-  }
-
-  /// Handle app resuming (synchronous, non-blocking)
-  void _handleAppResumedSync() {
-    // Reset initialization to force re-check on next mic tap
-    _speechInitialized = false;
-    
-    // If recording, stop it in a separate microtask
-    if (_recordingState == _RecordingState.recording) {
-      Future.microtask(() => _stopRecordingGracefully());
-    }
-  }
-
-  /// Handle app pausing (synchronous, non-blocking)
-  void _handleAppPausedSync() {
-    // Stop recording in a separate microtask
-    if (_recordingState == _RecordingState.recording) {
-      Future.microtask(() => _stopRecordingGracefully());
-    }
-  }
-
-  /// Gracefully stop recording without crashing
-  Future<void> _stopRecordingGracefully() async {
-    try {
-      if (_speech.isListening) {
-        await _speech.stop();
-      }
-    } catch (e) {
-      // Ignore errors when stopping
-    }
-    
-    if (mounted) {
-      setState(() {
-        _recordingState = _RecordingState.idle;
-        _isProcessingRecording = false;
-      });
-    }
-  }
-
   /// Clean up speech resources
   void _cleanupSpeech() {
     try {
-      if (_speechInitialized && _speech.isListening) {
-        _speech.stop();
+      final speech = _speech;
+      if (speech != null && speech.isListening) {
+        speech.cancel();
       }
     } catch (e) {
       // Ignore cleanup errors
     }
-  }
-
-  /// Initialize speech recognition with timeout
-  Future<bool> _initializeSpeechSafely() async {
-    if (_speechInitialized && _speech.isAvailable) {
-      return true; // Already initialized and available
-    }
-    
-    try {
-      final result = await _speech.initialize(
-        onError: (error) {
-          if (mounted) {
-            setState(() {
-              _recordingState = _RecordingState.idle;
-              _errorMessage = 'Speech error: ${error.errorMsg}';
-              _isProcessingRecording = false;
-            });
-            _startErrorTimer();
-          }
-        },
-        onStatus: (status) {
-          if (status == 'notListening' && 
-              _recordingState == _RecordingState.recording &&
-              mounted) {
-            // Speech stopped listening (e.g., timeout)
-            _handleStopRecording();
-          }
-        },
-      ).timeout(
-        const Duration(seconds: 3),
-        onTimeout: () => false,
-      );
-      
-      _speechInitialized = result;
-      return result;
-    } catch (e) {
-      _speechInitialized = false;
-      return false;
-    }
+    _speech = null;
   }
 
   /// Start the error timer to clear error messages after 3 seconds
@@ -271,30 +178,57 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with 
     if (_isProcessingRecording) return;
     _isProcessingRecording = true;
 
-    // Try to initialize speech (with timeout and error handling)
-    final initialized = await _initializeSpeechSafely();
-    
-    if (!initialized) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Microphone permission required';
-          _isProcessingRecording = false;
-        });
-        _startErrorTimer();
-      }
-      return;
-    }
-
     try {
+      // Always create a fresh SpeechToText instance
+      _cleanupSpeech();
+      _speech = stt.SpeechToText();
+      
+      final speech = _speech!;
+      
+      // Initialize with short timeout
+      final available = await speech.initialize(
+        onError: (error) {
+          if (mounted) {
+            setState(() {
+              _recordingState = _RecordingState.idle;
+              _errorMessage = 'Speech error: ${error.errorMsg}';
+              _isProcessingRecording = false;
+            });
+            _startErrorTimer();
+            _cleanupSpeech();
+          }
+        },
+        onStatus: (status) {
+          if (status == 'notListening' && 
+              _recordingState == _RecordingState.recording &&
+              mounted) {
+            _handleStopRecording();
+          }
+        },
+      ).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => false,
+      );
+      
+      if (!available) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Microphone permission required';
+            _isProcessingRecording = false;
+          });
+          _startErrorTimer();
+        }
+        _cleanupSpeech();
+        return;
+      }
 
       setState(() {
         _recordingState = _RecordingState.recording;
         _errorMessage = '';
       });
 
-      await _speech.listen(
+      await speech.listen(
         onResult: (result) {
-          // Update with partial results if needed
           if (result.finalResult && mounted) {
             _handleStopRecording();
           }
@@ -311,11 +245,12 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with 
       if (mounted) {
         setState(() {
           _recordingState = _RecordingState.idle;
-          _errorMessage = 'Microphone permission required';
+          _errorMessage = 'Failed to start recording';
           _isProcessingRecording = false;
         });
         _startErrorTimer();
       }
+      _cleanupSpeech();
     }
   }
 
@@ -328,10 +263,19 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with 
     });
 
     try {
-      await _speech.stop();
+      final speech = _speech;
+      if (speech == null) {
+        setState(() {
+          _recordingState = _RecordingState.idle;
+          _isProcessingRecording = false;
+        });
+        return;
+      }
+      
+      await speech.stop();
 
       // Get the transcribed text
-      final transcribedText = _speech.lastRecognizedWords;
+      final transcribedText = speech.lastRecognizedWords;
 
       if (mounted) {
         if (transcribedText.isNotEmpty) {
@@ -366,6 +310,8 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with 
         _startErrorTimer();
       }
     }
+    
+    _cleanupSpeech();
   }
 
   /// Handle mic button press (toggle recording)
