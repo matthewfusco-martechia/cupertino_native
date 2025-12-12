@@ -230,40 +230,21 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     }
 
     try {
-      // Check microphone permission status first
-      final micStatus = await Permission.microphone.status;
-      final speechStatus = await Permission.speech.status;
+      // Try to initialize speech - it will request permissions if needed
+      final available = await _speech.initialize();
       
-      // If permanently denied, show settings dialog
-      if (micStatus.isPermanentlyDenied || speechStatus.isPermanentlyDenied) {
-        _isProcessingRecording = false;
-        await _showPermissionDialog();
-        return;
-      }
-      
-      // If denied but not permanently, request again
-      if (micStatus.isDenied || speechStatus.isDenied) {
-        final micResult = await Permission.microphone.request();
-        final speechResult = await Permission.speech.request();
+      if (!available) {
+        // Check if it's a permanent denial
+        final micStatus = await Permission.microphone.status;
+        final speechStatus = await Permission.speech.status;
         
-        if (micResult.isDenied || speechResult.isDenied) {
-          setState(() {
-            _errorMessage = 'Microphone permission denied';
-            _isProcessingRecording = false;
-          });
-          _startErrorTimer();
-          return;
-        }
-        
-        if (micResult.isPermanentlyDenied || speechResult.isPermanentlyDenied) {
+        if (micStatus.isPermanentlyDenied || speechStatus.isPermanentlyDenied) {
           _isProcessingRecording = false;
           await _showPermissionDialog();
           return;
         }
-      }
-
-      final available = await _speech.initialize();
-      if (!available) {
+        
+        // Otherwise show error
         setState(() {
           _errorMessage = 'Microphone permission denied';
           _isProcessingRecording = false;
