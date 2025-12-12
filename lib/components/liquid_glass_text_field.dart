@@ -1,21 +1,15 @@
-import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:cupertino_native/cupertino_native.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
-
-/// Recording states for voice input
-enum _RecordingState {
-  idle,
-  recording,
-  transcribing,
-}
 
 /// A text field with a liquid glass effect background.
 ///
 /// This widget combines [CNGlassEffectContainer] and [CNInput] to create
 /// a modern, translucent input field similar to those found in iOS system apps.
 /// The trailing send button automatically appears when text is entered.
-/// Supports voice recording with speech-to-text transcription.
+///
+/// For voice input, users can use iOS's native keyboard dictation by tapping
+/// the microphone button on the iOS keyboard. This is handled entirely by iOS
+/// and requires no additional setup.
 class LiquidGlassTextField extends StatefulWidget {
   /// Creates a liquid glass text field.
   const LiquidGlassTextField({
@@ -35,9 +29,6 @@ class LiquidGlassTextField extends StatefulWidget {
     this.trailingIconColor,
     this.trailingIconInnerColor,
     this.trailingIconName,
-    this.enableVoiceInput = false,
-    this.micIconName = 'mic',
-    this.micIconColor,
   });
 
   /// Controls the text being edited.
@@ -85,15 +76,6 @@ class LiquidGlassTextField extends StatefulWidget {
   /// SF Symbol name for the trailing icon. Defaults to "arrow.up".
   final String? trailingIconName;
 
-  /// Whether to enable voice input with speech-to-text.
-  final bool enableVoiceInput;
-
-  /// Microphone icon name.
-  final String micIconName;
-
-  /// Microphone icon color.
-  final Color? micIconColor;
-
   @override
   State<LiquidGlassTextField> createState() => LiquidGlassTextFieldState();
 }
@@ -104,13 +86,6 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
   late TextEditingController _controller;
   String _currentText = '';
-
-  // Voice recording state
-  _RecordingState _recordingState = _RecordingState.idle;
-  stt.SpeechToText? _speech; // Nullable - created fresh each time
-  String _errorMessage = '';
-  Timer? _errorTimer;
-  bool _isProcessingRecording = false;
 
   // Show trailing icon only when there's text
   bool get _showTrailingIcon => _currentText.isNotEmpty;
@@ -125,225 +100,10 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
 
   @override
   void dispose() {
-    _cleanupSpeech();
-    _errorTimer?.cancel();
     if (widget.controller == null) {
       _controller.dispose();
     }
     super.dispose();
-  }
-
-  /// Start the error timer to clear error messages after 3 seconds
-  void _startErrorTimer() {
-    _errorTimer?.cancel();
-    _errorTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _errorMessage = '';
-        });
-      }
-    });
-  }
-
-  /// Clean up speech resources - called aggressively on any state change
-  void _cleanupSpeech() {
-    final speech = _speech;
-    if (speech == null) return;
-    
-    // Try cancel first (faster, abandons everything)
-    try { speech.cancel(); } catch (e) { /* ignore */ }
-    
-    // Then try stop as backup
-    try { speech.stop(); } catch (e) { /* ignore */ }
-    
-    _speech = null;
-  }
-
-  // Session ID to ignore stale callbacks after permission changes
-  int _sessionId = 0;
-
-  /// Handle starting voice recording
-  Future<void> _handleStartRecording() async {
-    if (_isProcessingRecording) return;
-    _isProcessingRecording = true;
-    
-    // Increment session ID to invalidate any old callbacks
-    final currentSession = ++_sessionId;
-
-    try {
-      // Always create a fresh SpeechToText instance
-      _cleanupSpeech();
-      _speech = stt.SpeechToText();
-      
-      final speech = _speech!;
-      
-      // Initialize with short timeout
-      // All callbacks are wrapped in try-catch and check session ID
-      final available = await speech.initialize(
-        onError: (error) {
-          try {
-            // Ignore if session changed (permissions changed mid-flight)
-            if (currentSession != _sessionId) return;
-            if (!mounted) return;
-            
-            setState(() {
-              _recordingState = _RecordingState.idle;
-              _errorMessage = 'Speech error: ${error.errorMsg}';
-              _isProcessingRecording = false;
-            });
-            _startErrorTimer();
-            _cleanupSpeech();
-          } catch (e) {
-            // Ignore all callback errors
-          }
-        },
-        onStatus: (status) {
-          try {
-            // Ignore if session changed (permissions changed mid-flight)
-            if (currentSession != _sessionId) return;
-            if (!mounted) return;
-            
-            if (status == 'notListening' && 
-                _recordingState == _RecordingState.recording) {
-              _handleStopRecording();
-            }
-          } catch (e) {
-            // Ignore all callback errors
-          }
-        },
-      ).timeout(
-        const Duration(seconds: 3),
-        onTimeout: () => false,
-      );
-      
-      // Check if session is still valid after async operation
-      if (currentSession != _sessionId) {
-        _cleanupSpeech();
-        return;
-      }
-      
-      if (!available) {
-        if (mounted) {
-          setState(() {
-            _errorMessage = 'Microphone permission required';
-            _isProcessingRecording = false;
-          });
-          _startErrorTimer();
-        }
-        _cleanupSpeech();
-        return;
-      }
-
-      if (mounted) {
-        setState(() {
-          _recordingState = _RecordingState.recording;
-          _errorMessage = '';
-        });
-      }
-
-      await speech.listen(
-        onResult: (result) {
-          try {
-            // Ignore if session changed (permissions changed mid-flight)
-            if (currentSession != _sessionId) return;
-            if (!mounted) return;
-            
-            if (result.finalResult) {
-              _handleStopRecording();
-            }
-          } catch (e) {
-            // Ignore all callback errors
-          }
-        },
-        listenOptions: stt.SpeechListenOptions(
-          listenMode: stt.ListenMode.confirmation,
-          cancelOnError: true,
-          partialResults: false,
-        ),
-      );
-
-      _isProcessingRecording = false;
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _recordingState = _RecordingState.idle;
-          _errorMessage = 'Failed to start recording';
-          _isProcessingRecording = false;
-        });
-        _startErrorTimer();
-      }
-      _cleanupSpeech();
-    }
-  }
-
-  /// Handle stopping voice recording and transcribing
-  Future<void> _handleStopRecording() async {
-    if (_recordingState != _RecordingState.recording) return;
-
-    setState(() {
-      _recordingState = _RecordingState.transcribing;
-    });
-
-    try {
-      final speech = _speech;
-      if (speech == null) {
-        setState(() {
-          _recordingState = _RecordingState.idle;
-          _isProcessingRecording = false;
-        });
-        return;
-      }
-      
-      await speech.stop();
-
-      // Get the transcribed text
-      final transcribedText = speech.lastRecognizedWords;
-
-      if (mounted) {
-        if (transcribedText.isNotEmpty) {
-          // Insert transcribed text into the input field
-          final currentText = _controller.text;
-          final newText = currentText.isEmpty
-              ? transcribedText
-              : '$currentText $transcribedText';
-          _controller.text = newText;
-          setState(() {
-            _currentText = newText;
-            _recordingState = _RecordingState.idle;
-            _isProcessingRecording = false;
-          });
-          widget.onChanged?.call(newText);
-        } else {
-          setState(() {
-            _recordingState = _RecordingState.idle;
-            _errorMessage = 'No speech detected';
-            _isProcessingRecording = false;
-          });
-          _startErrorTimer();
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _recordingState = _RecordingState.idle;
-          _errorMessage = 'Transcription failed';
-          _isProcessingRecording = false;
-        });
-        _startErrorTimer();
-      }
-    }
-    
-    _cleanupSpeech();
-  }
-
-  /// Handle mic button press (toggle recording)
-  Future<void> _handleMicPressed() async {
-    if (_recordingState == _RecordingState.idle) {
-      await _handleStartRecording();
-    } else if (_recordingState == _RecordingState.recording) {
-      await _handleStopRecording();
-    }
-    // Ignore if transcribing
   }
 
   double _calculateMaxHeight() {
@@ -383,228 +143,89 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     final effectiveIconInnerColor =
         widget.trailingIconInnerColor ?? CupertinoColors.white;
     final effectiveIconName = widget.trailingIconName ?? 'arrow.up';
-    
-    final String? shimmerText = _recordingState == _RecordingState.recording
-        ? 'Recording...'
-        : _recordingState == _RecordingState.transcribing
-            ? 'Transcribing...'
-            : null;
 
-    final isRecording = _recordingState == _RecordingState.recording;
-    
-    return Stack(
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
-          width: widget.width ?? double.infinity,
-          child: CNGlassEffectContainer(
-            height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
-            width: widget.width ?? double.infinity,
-            glassStyle: widget.glassStyle,
-            tint: widget.tint,
-            cornerRadius: effectiveCornerRadius,
-            child: Row(
-              crossAxisAlignment: _currentHeight > widget.minHeight 
-                  ? CrossAxisAlignment.end 
-                  : CrossAxisAlignment.center,
-              children: [
-                if (widget.leading != null) ...[
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: 8.0,
-                      bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
-                    ),
-                    child: widget.leading!,
-                  ),
-                ],
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: widget.leading == null ? 16.0 : 4.0,
-                      right: (_showTrailingIcon || widget.enableVoiceInput) ? 4.0 : 16.0,
-                    ),
-                    child: Stack(
-                      children: [
-                        CNInput(
-                          key: _inputKey,
-                          controller: _controller,
-                          placeholder: shimmerText == null ? widget.placeholder : '',
-                          backgroundColor: CupertinoColors.transparent,
-                          borderStyle: CNInputBorderStyle.none,
-                          minHeight: widget.minHeight,
-                          onSubmitted: (_) => _handleSubmit(),
-                          onChanged: (text) {
-                            setState(() {
-                              _currentText = text;
-                            });
-                            widget.onChanged?.call(text);
-                          },
-                          onFocusChanged: widget.onFocusChanged,
-                          textColor: shimmerText != null
-                              ? CupertinoColors.label.withValues(alpha: 0.0)
-                              : CupertinoColors.label,
-                          maxLines: widget.maxLines,
-                          keyboardType: TextInputType.multiline,
-                          textInputAction: TextInputAction.newline,
-                          onHeightChanged: (height) {
-                            if (mounted) {
-                              setState(() {
-                                _currentHeight = height.clamp(widget.minHeight, _calculateMaxHeight());
-                              });
-                            }
-                          },
-                        ),
-                        // Shimmer text overlay
-                        if (shimmerText != null)
-                          Positioned.fill(
-                            child: Container(
-                              color: CupertinoColors.transparent,
-                              child: IgnorePointer(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0, vertical: 14.0),
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: _ShimmerText(text: shimmerText),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 100),
+      height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+      width: widget.width ?? double.infinity,
+      child: CNGlassEffectContainer(
+        height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+        width: widget.width ?? double.infinity,
+        glassStyle: widget.glassStyle,
+        tint: widget.tint,
+        cornerRadius: effectiveCornerRadius,
+        child: Row(
+          crossAxisAlignment: _currentHeight > widget.minHeight
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.center,
+          children: [
+            if (widget.leading != null) ...[
+              Padding(
+                padding: EdgeInsets.only(
+                  left: 8.0,
+                  bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
                 ),
-                // Trailing Send Button or Mic Button
-                if (_showTrailingIcon) ...[
-                  Padding(
-                    padding: EdgeInsets.only(
-                      right: 8.0,
-                      bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
-                    ),
-                    child: CNButton.icon(
-                      icon: CNSymbol(
-                        effectiveIconName,
-                        size: 16,
-                        color: effectiveIconInnerColor,
-                      ),
-                      size: 32,
-                      style: CNButtonStyle.prominentGlass,
-                      tint: effectiveTrailingColor,
-                      onPressed: _handleSubmit,
-                    ),
-                  ),
-                ] else if (widget.enableVoiceInput) ...[
-                  Padding(
-                    padding: EdgeInsets.only(
-                      right: 8.0,
-                      bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
-                    ),
-                    child: CNButton.icon(
-                      icon: CNSymbol(
-                        isRecording ? 'stop.circle' : widget.micIconName,
-                        size: 16,
-                        color: isRecording 
-                            ? CupertinoColors.systemRed 
-                            : widget.micIconColor,
-                      ),
-                      size: 32,
-                      style: CNButtonStyle.glass,
-                      tint: isRecording 
-                          ? CupertinoColors.systemRed.withValues(alpha: 0.2)
-                          : widget.tint,
-                      onPressed: _handleMicPressed,
-                    ),
-                  ),
-                ],
-              ],
+                child: widget.leading!,
+              ),
+            ],
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: widget.leading == null ? 16.0 : 4.0,
+                  right: _showTrailingIcon ? 4.0 : 16.0,
+                ),
+                child: CNInput(
+                  key: _inputKey,
+                  controller: _controller,
+                  placeholder: widget.placeholder,
+                  backgroundColor: CupertinoColors.transparent,
+                  borderStyle: CNInputBorderStyle.none,
+                  minHeight: widget.minHeight,
+                  onSubmitted: (_) => _handleSubmit(),
+                  onChanged: (text) {
+                    setState(() {
+                      _currentText = text;
+                    });
+                    widget.onChanged?.call(text);
+                  },
+                  onFocusChanged: widget.onFocusChanged,
+                  maxLines: widget.maxLines,
+                  keyboardType: TextInputType.multiline,
+                  textInputAction: TextInputAction.newline,
+                  onHeightChanged: (height) {
+                    if (mounted) {
+                      setState(() {
+                        _currentHeight =
+                            height.clamp(widget.minHeight, _calculateMaxHeight());
+                      });
+                    }
+                  },
+                ),
+              ),
             ),
-          ),
+            // Trailing Send Button - only shows when there's text
+            if (_showTrailingIcon) ...[
+              Padding(
+                padding: EdgeInsets.only(
+                  right: 8.0,
+                  bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
+                ),
+                child: CNButton.icon(
+                  icon: CNSymbol(
+                    effectiveIconName,
+                    size: 16,
+                    color: effectiveIconInnerColor,
+                  ),
+                  size: 32,
+                  style: CNButtonStyle.prominentGlass,
+                  tint: effectiveTrailingColor,
+                  onPressed: _handleSubmit,
+                ),
+              ),
+            ],
+          ],
         ),
-        // Error message overlay
-        if (_errorMessage.isNotEmpty)
-          Positioned(
-            top: 4,
-            left: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: CupertinoColors.systemRed.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _errorMessage,
-                style: const TextStyle(
-                  color: CupertinoColors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// Shimmer text widget for recording/transcribing states
-class _ShimmerText extends StatefulWidget {
-  const _ShimmerText({required this.text});
-
-  final String text;
-
-  @override
-  State<_ShimmerText> createState() => _ShimmerTextState();
-}
-
-class _ShimmerTextState extends State<_ShimmerText>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-
-    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return DefaultTextStyle(
-          style: const TextStyle(
-            backgroundColor: CupertinoColors.transparent,
-          ),
-          child: Text(
-            widget.text,
-            style: TextStyle(
-              color: CupertinoColors.white.withValues(alpha: _animation.value * 0.6 + 0.4),
-              fontSize: 17,
-              fontWeight: FontWeight.w400,
-              decoration: TextDecoration.none,
-              backgroundColor: CupertinoColors.transparent,
-            ),
-          ),
-        );
-      },
+      ),
     );
   }
 }

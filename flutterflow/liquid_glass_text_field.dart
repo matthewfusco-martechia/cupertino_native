@@ -17,20 +17,19 @@ import 'package:flutter/cupertino.dart';
 //
 // Without this package, the widget will NOT compile!
 //
-// FOR VOICE INPUT (iOS/macOS):
-// Add these to Settings > App Settings > iOS > Info.plist Additions:
-//   <key>NSMicrophoneUsageDescription</key>
-//   <string>This app needs microphone access for voice input.</string>
-//   <key>NSSpeechRecognitionUsageDescription</key>
-//   <string>This app needs speech recognition to transcribe your voice.</string>
+// VOICE INPUT:
+// Users can use iOS's native keyboard dictation by tapping the mic button
+// on the iOS keyboard. This is handled entirely by iOS - no setup needed!
 // ============================================================================
 import 'package:cupertino_native/cupertino_native.dart' as cn;
 
-/// A liquid glass text field widget for FlutterFlow with voice input support.
+/// A liquid glass text field widget for FlutterFlow.
 ///
 /// The trailing send button automatically appears when text is entered
-/// and disappears when the field is empty. When voice input is enabled,
-/// a mic button appears when the field is empty.
+/// and disappears when the field is empty.
+///
+/// For voice input, users can tap the microphone button on the iOS keyboard
+/// to use native dictation - no additional setup required!
 ///
 /// ## Parameters:
 /// - [width]: Required width of the widget
@@ -40,8 +39,6 @@ import 'package:cupertino_native/cupertino_native.dart' as cn;
 /// - [trailingIconColor]: Tint/background color of the send button
 /// - [trailingIconInnerColor]: Color of the icon symbol itself
 /// - [trailingIconName]: SF Symbol name (default: "arrow.up")
-/// - [enableVoiceInput]: Enable voice recording with speech-to-text
-/// - [micIconName]: Microphone icon SF Symbol name (default: "mic")
 /// - [onSubmit]: Action when send button is pressed - receives the text value!
 /// - [onTextChanged]: Action when text changes
 /// - [onFocusChanged]: Action when focus changes
@@ -56,8 +53,6 @@ class LiquidGlassTextField extends StatefulWidget {
     this.trailingIconColor,
     this.trailingIconInnerColor,
     this.trailingIconName,
-    this.enableVoiceInput = false,
-    this.micIconName,
     this.onSubmit,
     this.onTextChanged,
     this.onFocusChanged,
@@ -88,13 +83,6 @@ class LiquidGlassTextField extends StatefulWidget {
   /// SF Symbol name for the trailing icon. Defaults to "arrow.up".
   /// Examples: "paperplane.fill", "checkmark", "plus", "arrow.right"
   final String? trailingIconName;
-
-  /// Enable voice input with speech-to-text transcription.
-  final bool enableVoiceInput;
-
-  /// Microphone icon SF Symbol name. Defaults to "mic".
-  /// Examples: "mic.fill", "waveform"
-  final String? micIconName;
 
   /// Action to perform when the send button is pressed.
   /// Receives the current text value as a parameter.
@@ -173,7 +161,6 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     final effectiveIconInnerColor =
         widget.trailingIconInnerColor ?? const Color(0xFFFFFFFF);
     final effectiveIconName = widget.trailingIconName ?? 'arrow.up';
-    final effectiveMicIconName = widget.micIconName ?? 'mic';
     
     return Theme(
       data: widget.isDarkMode ? ThemeData.dark() : ThemeData.light(),
@@ -194,8 +181,6 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
             trailingIconColor: effectiveTrailingColor,
             trailingIconInnerColor: effectiveIconInnerColor,
             trailingIconName: effectiveIconName,
-            enableVoiceInput: widget.enableVoiceInput,
-            micIconName: effectiveMicIconName,
             onSubmitted: _handleSubmit,
             onChanged: (text) {
               setState(() {
