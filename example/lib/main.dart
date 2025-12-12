@@ -6,7 +6,10 @@ import 'demos/segmented_control.dart';
 import 'demos/tab_bar.dart';
 import 'demos/icon.dart';
 import 'demos/popup_menu_button.dart';
+import 'demos/popup_menu_text_button.dart';
 import 'demos/button.dart';
+import 'demos/liquid_glass_text_button.dart';
+import 'demos/liquid_glass_text_button_w_dialog.dart';
 import 'demos/navigation_bar.dart';
 import 'demos/glass_effect_container.dart';
 import 'demos/input.dart';
@@ -18,6 +21,7 @@ import 'demos/liquid_glass_input_dialog_demo.dart';
 import 'demos/liquid_glass_icon_container.dart';
 import 'demos/liquid_glass_snackbar_demo.dart';
 import 'demos/cupertino_slideable_list_tile_demo.dart';
+import 'demos/liquid_glass_message_input.dart';
 
 void main() {
   runApp(const MyApp());
@@ -198,6 +202,20 @@ class HomePage extends StatelessWidget {
                 },
               ),
               CupertinoListTile(
+                title: Text('Popup Menu Text Button'),
+                leading: CNIcon(
+                  symbol: CNSymbol('chevron.down.square', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const PopupMenuTextButtonDemoPage(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
                 title: Text('Button'),
                 leading: CNIcon(
                   symbol: CNSymbol('hand.tap', color: accentColor),
@@ -206,6 +224,34 @@ class HomePage extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     CupertinoPageRoute(builder: (_) => const ButtonDemoPage()),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Liquid Glass Text Button'),
+                leading: CNIcon(
+                  symbol: CNSymbol('hand.tap.fill', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassTextButtonDemoPage(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Liquid Glass Button w/ Dialog'),
+                leading: CNIcon(
+                  symbol: CNSymbol('rectangle.stack.badge.plus', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassTextButtonWDialogDemoPage(),
+                    ),
                   );
                 },
               ),
@@ -231,6 +277,20 @@ class HomePage extends StatelessWidget {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
                       builder: (_) => const LiquidGlassTextFieldDemoPage(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Liquid Glass Message Input'),
+                leading: CNIcon(
+                  symbol: CNSymbol('bubble.left.and.bubble.right.fill', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassMessageInputDemoPage(),
                     ),
                   );
                 },
