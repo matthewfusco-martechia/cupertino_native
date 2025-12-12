@@ -7,6 +7,10 @@ import 'package:cupertino_native/cupertino_native.dart';
 /// a modern, translucent input field similar to those found in iOS system apps.
 /// The trailing send button automatically appears when text is entered.
 ///
+/// When [showPlaceholderIcon] is true, a placeholder icon (like a mic) shows
+/// when the field is empty, then transforms into the send button when text
+/// is entered.
+///
 /// For voice input, users can use iOS's native keyboard dictation by tapping
 /// the microphone button on the iOS keyboard. This is handled entirely by iOS
 /// and requires no additional setup.
@@ -29,6 +33,10 @@ class LiquidGlassTextField extends StatefulWidget {
     this.trailingIconColor,
     this.trailingIconInnerColor,
     this.trailingIconName,
+    this.showPlaceholderIcon = false,
+    this.placeholderIconName = 'mic',
+    this.placeholderIconColor,
+    this.onPlaceholderIconPressed,
   });
 
   /// Controls the text being edited.
@@ -75,6 +83,19 @@ class LiquidGlassTextField extends StatefulWidget {
 
   /// SF Symbol name for the trailing icon. Defaults to "arrow.up".
   final String? trailingIconName;
+
+  /// Whether to show a placeholder icon when the field is empty.
+  /// When true, shows [placeholderIconName] when empty, send button when has text.
+  final bool showPlaceholderIcon;
+
+  /// SF Symbol name for the placeholder icon. Defaults to "mic".
+  final String placeholderIconName;
+
+  /// Color for the placeholder icon.
+  final Color? placeholderIconColor;
+
+  /// Callback when the placeholder icon is pressed.
+  final VoidCallback? onPlaceholderIconPressed;
 
   @override
   State<LiquidGlassTextField> createState() => LiquidGlassTextFieldState();
@@ -143,6 +164,9 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     final effectiveIconInnerColor =
         widget.trailingIconInnerColor ?? CupertinoColors.white;
     final effectiveIconName = widget.trailingIconName ?? 'arrow.up';
+    
+    // Show trailing button if: has text OR showPlaceholderIcon is enabled
+    final showTrailingButton = _showTrailingIcon || widget.showPlaceholderIcon;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 100),
@@ -172,7 +196,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
               child: Padding(
                 padding: EdgeInsets.only(
                   left: widget.leading == null ? 16.0 : 4.0,
-                  right: _showTrailingIcon ? 4.0 : 16.0,
+                  right: showTrailingButton ? 4.0 : 16.0,
                 ),
                 child: CNInput(
                   key: _inputKey,
@@ -203,24 +227,38 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                 ),
               ),
             ),
-            // Trailing Send Button - only shows when there's text
-            if (_showTrailingIcon) ...[
+            // Trailing Button - Send when has text, placeholder when empty
+            if (showTrailingButton) ...[
               Padding(
                 padding: EdgeInsets.only(
                   right: 8.0,
                   bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
                 ),
-                child: CNButton.icon(
-                  icon: CNSymbol(
-                    effectiveIconName,
-                    size: 16,
-                    color: effectiveIconInnerColor,
-                  ),
-                  size: 32,
-                  style: CNButtonStyle.prominentGlass,
-                  tint: effectiveTrailingColor,
-                  onPressed: _handleSubmit,
-                ),
+                child: _showTrailingIcon
+                    // Send button when there's text
+                    ? CNButton.icon(
+                        icon: CNSymbol(
+                          effectiveIconName,
+                          size: 16,
+                          color: effectiveIconInnerColor,
+                        ),
+                        size: 32,
+                        style: CNButtonStyle.prominentGlass,
+                        tint: effectiveTrailingColor,
+                        onPressed: _handleSubmit,
+                      )
+                    // Placeholder icon when empty
+                    : CNButton.icon(
+                        icon: CNSymbol(
+                          widget.placeholderIconName,
+                          size: 16,
+                          color: widget.placeholderIconColor,
+                        ),
+                        size: 32,
+                        style: CNButtonStyle.glass,
+                        tint: widget.tint,
+                        onPressed: widget.onPlaceholderIconPressed,
+                      ),
               ),
             ],
           ],

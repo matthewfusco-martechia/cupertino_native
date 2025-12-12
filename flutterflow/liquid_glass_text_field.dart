@@ -25,8 +25,10 @@ import 'package:cupertino_native/cupertino_native.dart' as cn;
 
 /// A liquid glass text field widget for FlutterFlow.
 ///
-/// The trailing send button automatically appears when text is entered
-/// and disappears when the field is empty.
+/// The trailing send button automatically appears when text is entered.
+/// When [showPlaceholderIcon] is true, a placeholder icon (like a mic) shows
+/// when the field is empty, then transforms into the send button when text
+/// is entered.
 ///
 /// For voice input, users can tap the microphone button on the iOS keyboard
 /// to use native dictation - no additional setup required!
@@ -39,9 +41,13 @@ import 'package:cupertino_native/cupertino_native.dart' as cn;
 /// - [trailingIconColor]: Tint/background color of the send button
 /// - [trailingIconInnerColor]: Color of the icon symbol itself
 /// - [trailingIconName]: SF Symbol name (default: "arrow.up")
+/// - [showPlaceholderIcon]: Show placeholder icon when field is empty
+/// - [placeholderIconName]: SF Symbol name for placeholder (default: "mic")
+/// - [placeholderIconColor]: Color for placeholder icon
 /// - [onSubmit]: Action when send button is pressed - receives the text value!
 /// - [onTextChanged]: Action when text changes
 /// - [onFocusChanged]: Action when focus changes
+/// - [onPlaceholderIconPressed]: Action when placeholder icon is pressed
 /// - [clearOnSubmit]: Whether to clear the text field after submit (default: true)
 class LiquidGlassTextField extends StatefulWidget {
   const LiquidGlassTextField({
@@ -53,9 +59,13 @@ class LiquidGlassTextField extends StatefulWidget {
     this.trailingIconColor,
     this.trailingIconInnerColor,
     this.trailingIconName,
+    this.showPlaceholderIcon = false,
+    this.placeholderIconName = 'mic',
+    this.placeholderIconColor,
     this.onSubmit,
     this.onTextChanged,
     this.onFocusChanged,
+    this.onPlaceholderIconPressed,
     this.maxLines = 10,
     this.cornerRadius,
     this.clearOnSubmit = true,
@@ -84,6 +94,17 @@ class LiquidGlassTextField extends StatefulWidget {
   /// Examples: "paperplane.fill", "checkmark", "plus", "arrow.right"
   final String? trailingIconName;
 
+  /// Whether to show a placeholder icon when the field is empty.
+  /// When true, shows placeholderIconName when empty, send button when has text.
+  final bool showPlaceholderIcon;
+
+  /// SF Symbol name for the placeholder icon. Defaults to "mic".
+  /// Examples: "mic", "mic.fill", "waveform", "circle"
+  final String placeholderIconName;
+
+  /// Color for the placeholder icon.
+  final Color? placeholderIconColor;
+
   /// Action to perform when the send button is pressed.
   /// Receives the current text value as a parameter.
   final Future<dynamic> Function(String text)? onSubmit;
@@ -93,6 +114,9 @@ class LiquidGlassTextField extends StatefulWidget {
 
   /// Action to perform when focus changes.
   final Future<dynamic> Function(bool focused)? onFocusChanged;
+
+  /// Action to perform when the placeholder icon is pressed.
+  final Future<dynamic> Function()? onPlaceholderIconPressed;
 
   /// Maximum number of lines before scrolling.
   final int maxLines;
@@ -181,6 +205,12 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
             trailingIconColor: effectiveTrailingColor,
             trailingIconInnerColor: effectiveIconInnerColor,
             trailingIconName: effectiveIconName,
+            showPlaceholderIcon: widget.showPlaceholderIcon,
+            placeholderIconName: widget.placeholderIconName,
+            placeholderIconColor: widget.placeholderIconColor,
+            onPlaceholderIconPressed: widget.onPlaceholderIconPressed != null
+                ? () => widget.onPlaceholderIconPressed!()
+                : null,
             onSubmitted: _handleSubmit,
             onChanged: (text) {
               setState(() {
