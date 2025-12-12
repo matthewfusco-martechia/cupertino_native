@@ -158,29 +158,30 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with 
     super.didChangeAppLifecycleState(state);
     
     if (state == AppLifecycleState.resumed) {
-      // App resumed - permissions might have changed
-      _handleAppResumed();
+      // App resumed - reset speech state (non-blocking)
+      _handleAppResumedSync();
     } else if (state == AppLifecycleState.paused) {
-      // App paused - stop any active recording
-      _handleAppPaused();
+      // App paused - stop recording (non-blocking)
+      _handleAppPausedSync();
     }
   }
 
-  /// Handle app resuming (user might have changed permissions)
-  Future<void> _handleAppResumed() async {
-    // If we were recording, stop it
-    if (_recordingState == _RecordingState.recording) {
-      await _stopRecordingGracefully();
-    }
-    
-    // Reset initialization flag to force re-check on next mic tap
+  /// Handle app resuming (synchronous, non-blocking)
+  void _handleAppResumedSync() {
+    // Reset initialization to force re-check on next mic tap
     _speechInitialized = false;
+    
+    // If recording, stop it in a separate microtask
+    if (_recordingState == _RecordingState.recording) {
+      Future.microtask(() => _stopRecordingGracefully());
+    }
   }
 
-  /// Handle app pausing (stop any active recording)
-  Future<void> _handleAppPaused() async {
+  /// Handle app pausing (synchronous, non-blocking)
+  void _handleAppPausedSync() {
+    // Stop recording in a separate microtask
     if (_recordingState == _RecordingState.recording) {
-      await _stopRecordingGracefully();
+      Future.microtask(() => _stopRecordingGracefully());
     }
   }
 
