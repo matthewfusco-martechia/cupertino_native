@@ -200,6 +200,20 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     }
 
     try {
+      // Check if speech is still available (permissions might have been revoked)
+      if (!_speech.isAvailable) {
+        // Re-initialize to check permissions
+        final available = await _speech.initialize();
+        if (!available) {
+          setState(() {
+            _errorMessage = 'Microphone permission required';
+            _isProcessingRecording = false;
+          });
+          _startErrorTimer();
+          return;
+        }
+      }
+
       setState(() {
         _recordingState = _RecordingState.recording;
         _errorMessage = '';
@@ -223,7 +237,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
       if (mounted) {
         setState(() {
           _recordingState = _RecordingState.idle;
-          _errorMessage = 'Failed to start recording';
+          _errorMessage = 'Microphone permission required';
           _isProcessingRecording = false;
         });
         _startErrorTimer();
