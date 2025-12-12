@@ -99,7 +99,7 @@ class LiquidGlassTextField extends StatefulWidget {
 }
 
 /// State for [LiquidGlassTextField].
-class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
+class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with WidgetsBindingObserver {
   double _currentHeight = 50.0;
   final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
   late TextEditingController _controller;
@@ -123,6 +123,9 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     _controller = widget.controller ?? TextEditingController();
     _currentText = _controller.text;
     
+    // Add lifecycle observer
+    WidgetsBinding.instance.addObserver(this);
+    
     if (widget.enableVoiceInput) {
       _initializeSpeech();
     }
@@ -130,14 +133,76 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
 
   @override
   void dispose() {
+    // Remove lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
+    _cleanupSpeech();
     _errorTimer?.cancel();
-    if (_speechInitialized && _speech.isListening) {
-      _speech.stop();
-    }
     if (widget.controller == null) {
       _controller.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    if (!widget.enableVoiceInput) return;
+    
+    if (state == AppLifecycleState.resumed) {
+      // App resumed - permissions might have changed
+      _handleAppResumed();
+    } else if (state == AppLifecycleState.paused) {
+      // App paused - stop any active recording
+      _handleAppPaused();
+    }
+  }
+
+  /// Handle app resuming (user might have changed permissions)
+  Future<void> _handleAppResumed() async {
+    // If we were recording, stop it
+    if (_recordingState == _RecordingState.recording) {
+      await _stopRecordingGracefully();
+    }
+    
+    // Reset initialization flag to force re-check on next mic tap
+    _speechInitialized = false;
+  }
+
+  /// Handle app pausing (stop any active recording)
+  Future<void> _handleAppPaused() async {
+    if (_recordingState == _RecordingState.recording) {
+      await _stopRecordingGracefully();
+    }
+  }
+
+  /// Gracefully stop recording without crashing
+  Future<void> _stopRecordingGracefully() async {
+    try {
+      if (_speech.isListening) {
+        await _speech.stop();
+      }
+    } catch (e) {
+      // Ignore errors when stopping
+    }
+    
+    if (mounted) {
+      setState(() {
+        _recordingState = _RecordingState.idle;
+        _isProcessingRecording = false;
+      });
+    }
+  }
+
+  /// Clean up speech resources
+  void _cleanupSpeech() {
+    try {
+      if (_speechInitialized && _speech.isListening) {
+        _speech.stop();
+      }
+    } catch (e) {
+      // Ignore cleanup errors
+    }
   }
 
   /// Initialize speech recognition with timeout
