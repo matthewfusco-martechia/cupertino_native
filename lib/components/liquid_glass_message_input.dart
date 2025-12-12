@@ -150,7 +150,7 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
     super.dispose();
   }
 
-  /// Initialize speech recognition
+  /// Initialize speech recognition with timeout
   Future<void> _initializeSpeech() async {
     try {
       _speechInitialized = await _speech.initialize(
@@ -172,14 +172,18 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
             _handleStopRecording();
           }
         },
+      ).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          if (mounted) {
+            _speechInitialized = false;
+          }
+          return false;
+        },
       );
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = 'Failed to initialize speech recognition';
-          _isProcessingRecording = false;
-        });
-        _startErrorTimer();
+        _speechInitialized = false;
       }
     }
   }
