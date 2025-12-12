@@ -106,17 +106,15 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   double _currentHeight = 50.0;
   final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
   late TextEditingController _controller;
-  String _currentText = '';
 
-  // Show trailing icon only when there's text
-  bool get _showTrailingIcon => _currentText.isNotEmpty;
+  // Check text directly from controller for reliability
+  bool get _hasText => _controller.text.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _currentHeight = widget.minHeight;
     _controller = widget.controller ?? TextEditingController();
-    _currentText = _controller.text;
     _controller.addListener(_onControllerChanged);
   }
 
@@ -127,7 +125,6 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
       oldWidget.controller?.removeListener(_onControllerChanged);
       _controller = widget.controller ?? _controller;
       _controller.addListener(_onControllerChanged);
-      _currentText = _controller.text;
     }
   }
 
@@ -141,10 +138,9 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   }
 
   void _onControllerChanged() {
-    if (_currentText != _controller.text) {
-      setState(() {
-        _currentText = _controller.text;
-      });
+    // Just trigger a rebuild - we read from controller directly
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -165,12 +161,11 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   }
 
   void _handleSubmit() {
-    final text = _currentText;
+    final text = _controller.text;
     if (text.isNotEmpty) {
       widget.onSubmitted?.call(text);
       _controller.clear();
       setState(() {
-        _currentText = '';
         _currentHeight = widget.minHeight;
       });
       _inputKey.currentState?.unfocus();
@@ -187,7 +182,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     final effectiveIconName = widget.trailingIconName ?? 'arrow.up';
     
     // Show trailing button if: has text OR showPlaceholderIcon is enabled
-    final showTrailingButton = _showTrailingIcon || widget.showPlaceholderIcon;
+    final showTrailingButton = _hasText || widget.showPlaceholderIcon;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 100),
@@ -228,10 +223,8 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                   minHeight: widget.minHeight,
                   onSubmitted: (_) => _handleSubmit(),
                   onChanged: (text) {
-                    setState(() {
-                      _currentText = text;
-                    });
                     widget.onChanged?.call(text);
+                    // Controller listener will trigger rebuild
                   },
                   onFocusChanged: widget.onFocusChanged,
                   maxLines: widget.maxLines,
@@ -255,7 +248,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                   right: 8.0,
                   bottom: _currentHeight > widget.minHeight ? 8.0 : 0.0,
                 ),
-                child: _showTrailingIcon
+                child: _hasText
                     // Send button when there's text
                     ? CNButton.icon(
                         icon: CNSymbol(

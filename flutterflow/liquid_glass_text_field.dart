@@ -137,14 +137,12 @@ class LiquidGlassTextField extends StatefulWidget {
 class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   final TextEditingController _controller = TextEditingController();
   final GlobalKey<cn.LiquidGlassTextFieldState> _fieldKey = GlobalKey<cn.LiquidGlassTextFieldState>();
-  String _currentText = '';
 
   @override
   void initState() {
     super.initState();
     if (widget.initialText != null && widget.initialText!.isNotEmpty) {
       _controller.text = widget.initialText!;
-      _currentText = widget.initialText!;
     }
   }
 
@@ -153,9 +151,8 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialText != oldWidget.initialText && 
         widget.initialText != null &&
-        widget.initialText != _currentText) {
+        widget.initialText != _controller.text) {
       _controller.text = widget.initialText!;
-      _currentText = widget.initialText!;
     }
   }
 
@@ -171,9 +168,6 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
       
       if (widget.clearOnSubmit) {
         _controller.clear();
-        setState(() {
-          _currentText = '';
-        });
       }
     }
   }
@@ -213,9 +207,6 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                 : null,
             onSubmitted: _handleSubmit,
             onChanged: (text) {
-              setState(() {
-                _currentText = text;
-              });
               widget.onTextChanged?.call(text);
             },
             onFocusChanged: (focused) {
@@ -227,15 +218,13 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     );
   }
 
-  String get text => _currentText;
+  String get text => _controller.text;
 
   set text(String value) {
     _controller.text = value;
-    _currentText = value;
   }
 
   void clear() {
     _controller.clear();
-    _currentText = '';
   }
 }
