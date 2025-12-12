@@ -180,6 +180,8 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     final effectiveIconInnerColor =
         widget.trailingIconInnerColor ?? CupertinoColors.white;
     final effectiveIconName = widget.trailingIconName ?? 'arrow.up';
+    final effectivePlaceholderColor = 
+        widget.placeholderIconColor ?? CupertinoColors.systemGrey;
     
     // Show trailing button if: has text OR showPlaceholderIcon is enabled
     final showTrailingButton = _hasText || widget.showPlaceholderIcon;
@@ -253,7 +255,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                     ? CNButton.icon(
                         icon: CNSymbol(
                           effectiveIconName,
-                          size: 16,
+                          size: 18,
                           color: effectiveIconInnerColor,
                         ),
                         size: 32,
@@ -265,8 +267,8 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                     : CNButton.icon(
                         icon: CNSymbol(
                           widget.placeholderIconName,
-                          size: 16,
-                          color: widget.placeholderIconColor,
+                          size: 18,
+                          color: effectivePlaceholderColor,
                         ),
                         size: 32,
                         style: CNButtonStyle.glass,
