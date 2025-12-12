@@ -126,9 +126,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
     // Add lifecycle observer
     WidgetsBinding.instance.addObserver(this);
     
-    if (widget.enableVoiceInput) {
-      _initializeSpeech();
-    }
+    // Don't initialize speech here - do it lazily when mic is tapped
   }
 
   @override
@@ -206,9 +204,13 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
   }
 
   /// Initialize speech recognition with timeout
-  Future<void> _initializeSpeech() async {
+  Future<bool> _initializeSpeechSafely() async {
+    if (_speechInitialized && _speech.isAvailable) {
+      return true; // Already initialized and available
+    }
+    
     try {
-      _speechInitialized = await _speech.initialize(
+      final result = await _speech.initialize(
         onError: (error) {
           if (mounted) {
             setState(() {
@@ -227,18 +229,15 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
           }
         },
       ).timeout(
-        const Duration(seconds: 5),
-        onTimeout: () {
-          if (mounted) {
-            _speechInitialized = false;
-          }
-          return false;
-        },
+        const Duration(seconds: 3),
+        onTimeout: () => false,
       );
+      
+      _speechInitialized = result;
+      return result;
     } catch (e) {
-      if (mounted) {
-        _speechInitialized = false;
-      }
+      _speechInitialized = false;
+      return false;
     }
   }
 
@@ -259,59 +258,18 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
     if (_isProcessingRecording) return;
     _isProcessingRecording = true;
 
-    // If speech wasn't initialized or isn't available, try to initialize it now
-    if (!_speechInitialized || !_speech.isAvailable) {
-      try {
-        _speechInitialized = await _speech.initialize(
-          onError: (error) {
-            if (mounted) {
-              setState(() {
-                _recordingState = _RecordingState.idle;
-                _errorMessage = 'Speech error: ${error.errorMsg}';
-                _isProcessingRecording = false;
-              });
-              _startErrorTimer();
-            }
-          },
-          onStatus: (status) {
-            if (status == 'notListening' && 
-                _recordingState == _RecordingState.recording &&
-                mounted) {
-              _handleStopRecording();
-            }
-          },
-        ).timeout(
-          const Duration(seconds: 5),
-          onTimeout: () {
-            if (mounted) {
-              setState(() {
-                _errorMessage = 'Speech initialization timed out';
-                _isProcessingRecording = false;
-              });
-              _startErrorTimer();
-            }
-            return false;
-          },
-        );
-        
-        if (!_speechInitialized) {
-          setState(() {
-            _errorMessage = 'Microphone permission required';
-            _isProcessingRecording = false;
-          });
-          _startErrorTimer();
-          return;
-        }
-      } catch (e) {
-        if (mounted) {
-          setState(() {
-            _errorMessage = 'Failed to initialize speech recognition';
-            _isProcessingRecording = false;
-          });
-          _startErrorTimer();
-        }
-        return;
+    // Try to initialize speech (with timeout and error handling)
+    final initialized = await _initializeSpeechSafely();
+    
+    if (!initialized) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Microphone permission required';
+          _isProcessingRecording = false;
+        });
+        _startErrorTimer();
       }
+      return;
     }
 
     try {
