@@ -13,6 +13,15 @@ import 'package:flutter/material.dart';
 import 'package:cupertino_native/cupertino_native.dart';
 import 'package:flutter/cupertino.dart';
 
+// ============================================================================
+// FOR VOICE INPUT (iOS/macOS):
+// Add these to Settings > App Settings > iOS > Info.plist Additions:
+//   <key>NSMicrophoneUsageDescription</key>
+//   <string>This app needs microphone access for voice input.</string>
+//   <key>NSSpeechRecognitionUsageDescription</key>
+//   <string>This app needs speech recognition to transcribe your voice.</string>
+// ============================================================================
+
 /// FlutterFlow-compatible Liquid Glass Message Input
 ///
 /// Provides:

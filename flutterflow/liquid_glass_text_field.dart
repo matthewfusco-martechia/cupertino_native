@@ -16,13 +16,21 @@ import 'package:flutter/cupertino.dart';
 // 6. Click "Add" and wait for rebuild
 //
 // Without this package, the widget will NOT compile!
+//
+// FOR VOICE INPUT (iOS/macOS):
+// Add these to Settings > App Settings > iOS > Info.plist Additions:
+//   <key>NSMicrophoneUsageDescription</key>
+//   <string>This app needs microphone access for voice input.</string>
+//   <key>NSSpeechRecognitionUsageDescription</key>
+//   <string>This app needs speech recognition to transcribe your voice.</string>
 // ============================================================================
-import 'package:cupertino_native/cupertino_native.dart';
+import 'package:cupertino_native/cupertino_native.dart' as cn;
 
-/// A liquid glass text field widget for FlutterFlow.
+/// A liquid glass text field widget for FlutterFlow with voice input support.
 ///
 /// The trailing send button automatically appears when text is entered
-/// and disappears when the field is empty.
+/// and disappears when the field is empty. When voice input is enabled,
+/// a mic button appears when the field is empty.
 ///
 /// ## Parameters:
 /// - [width]: Required width of the widget
@@ -32,6 +40,8 @@ import 'package:cupertino_native/cupertino_native.dart';
 /// - [trailingIconColor]: Tint/background color of the send button
 /// - [trailingIconInnerColor]: Color of the icon symbol itself
 /// - [trailingIconName]: SF Symbol name (default: "arrow.up")
+/// - [enableVoiceInput]: Enable voice recording with speech-to-text
+/// - [micIconName]: Microphone icon SF Symbol name (default: "mic")
 /// - [onSubmit]: Action when send button is pressed - receives the text value!
 /// - [onTextChanged]: Action when text changes
 /// - [onFocusChanged]: Action when focus changes
@@ -46,6 +56,8 @@ class LiquidGlassTextField extends StatefulWidget {
     this.trailingIconColor,
     this.trailingIconInnerColor,
     this.trailingIconName,
+    this.enableVoiceInput = false,
+    this.micIconName,
     this.onSubmit,
     this.onTextChanged,
     this.onFocusChanged,
@@ -77,6 +89,13 @@ class LiquidGlassTextField extends StatefulWidget {
   /// Examples: "paperplane.fill", "checkmark", "plus", "arrow.right"
   final String? trailingIconName;
 
+  /// Enable voice input with speech-to-text transcription.
+  final bool enableVoiceInput;
+
+  /// Microphone icon SF Symbol name. Defaults to "mic".
+  /// Examples: "mic.fill", "waveform"
+  final String? micIconName;
+
   /// Action to perform when the send button is pressed.
   /// Receives the current text value as a parameter.
   final Future<dynamic> Function(String text)? onSubmit;
@@ -105,17 +124,12 @@ class LiquidGlassTextField extends StatefulWidget {
 
 class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   final TextEditingController _controller = TextEditingController();
-  final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
-  double _currentHeight = 50.0;
+  final GlobalKey<cn.LiquidGlassTextFieldState> _fieldKey = GlobalKey<cn.LiquidGlassTextFieldState>();
   String _currentText = '';
-
-  // Show trailing icon only when there's text
-  bool get _showTrailingIcon => _currentText.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    _currentHeight = widget.height;
     if (widget.initialText != null && widget.initialText!.isNotEmpty) {
       _controller.text = widget.initialText!;
       _currentText = widget.initialText!;
@@ -139,14 +153,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     super.dispose();
   }
 
-  double _calculateMaxHeight() {
-    const lineHeight = 17.0 * 1.2;
-    const verticalPadding = 20.0;
-    return lineHeight * widget.maxLines + verticalPadding;
-  }
-
-  void _handleSubmit() {
-    final text = _currentText;
+  void _handleSubmit(String text) {
     if (text.isNotEmpty) {
       widget.onSubmit?.call(text);
       
@@ -154,24 +161,19 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
         _controller.clear();
         setState(() {
           _currentText = '';
-          _currentHeight = widget.height;
         });
       }
-      
-      _inputKey.currentState?.unfocus();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final effectiveCornerRadius = widget.cornerRadius ?? widget.height / 2;
     final effectiveTrailingColor =
         widget.trailingIconColor ?? const Color(0xFF007AFF);
     final effectiveIconInnerColor =
         widget.trailingIconInnerColor ?? const Color(0xFFFFFFFF);
     final effectiveIconName = widget.trailingIconName ?? 'arrow.up';
-
-    final currentHeight = _currentHeight.clamp(widget.height, _calculateMaxHeight());
+    final effectiveMicIconName = widget.micIconName ?? 'mic';
     
     return Theme(
       data: widget.isDarkMode ? ThemeData.dark() : ThemeData.light(),
@@ -180,85 +182,30 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
           brightness: widget.isDarkMode ? Brightness.dark : Brightness.light,
         ),
         child: SizedBox(
-          height: currentHeight,
           width: widget.width,
-          child: CNGlassEffectContainer(
-            height: currentHeight,
+          child: cn.LiquidGlassTextField(
+            key: _fieldKey,
+            controller: _controller,
+            placeholder: widget.placeholder,
+            minHeight: widget.height,
             width: widget.width,
-            glassStyle: CNGlassStyle.regular,
-            cornerRadius: effectiveCornerRadius,
-            interactive: true,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Text Input
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: 12.0,
-                      right: _showTrailingIcon ? 4.0 : 12.0,
-                    ),
-                    child: CNInput(
-                      key: _inputKey,
-                      controller: _controller,
-                      placeholder: widget.placeholder,
-                      backgroundColor: const Color(0x00000000),
-                      borderStyle: CNInputBorderStyle.none,
-                      minHeight: widget.height - 8,
-                      textColor: widget.isDarkMode
-                          ? const Color(0xFFFFFFFF)
-                          : const Color(0xFF000000),
-                      maxLines: widget.maxLines,
-                      keyboardType: TextInputType.multiline,
-                      textInputAction: TextInputAction.newline,
-                      onChanged: (text) {
-                        setState(() {
-                        _currentText = text;
-                        });
-                        widget.onTextChanged?.call(text);
-                      },
-                      onFocusChanged: (focused) {
-                        widget.onFocusChanged?.call(focused);
-                      },
-                      onHeightChanged: (height) {
-                        if (mounted) {
-                          setState(() {
-                            _currentHeight = height.clamp(
-                              widget.height,
-                              _calculateMaxHeight(),
-                            );
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                ),
-                // Trailing Send Button - only shown when text is not empty
-                if (_showTrailingIcon)
-                Align(
-                  alignment: currentHeight > widget.height 
-                      ? Alignment.bottomCenter 
-                      : Alignment.center,
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: 8.0,
-                      bottom: currentHeight > widget.height ? 8.0 : 0.0,
-                    ),
-                    child: CNButton.icon(
-                        icon: CNSymbol(
-                          effectiveIconName,
-                        size: 16,
-                          color: effectiveIconInnerColor,
-                      ),
-                      size: 32,
-                      style: CNButtonStyle.prominentGlass,
-                      tint: effectiveTrailingColor,
-                      onPressed: _handleSubmit,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            maxLines: widget.maxLines,
+            cornerRadius: widget.cornerRadius,
+            trailingIconColor: effectiveTrailingColor,
+            trailingIconInnerColor: effectiveIconInnerColor,
+            trailingIconName: effectiveIconName,
+            enableVoiceInput: widget.enableVoiceInput,
+            micIconName: effectiveMicIconName,
+            onSubmitted: _handleSubmit,
+            onChanged: (text) {
+              setState(() {
+                _currentText = text;
+              });
+              widget.onTextChanged?.call(text);
+            },
+            onFocusChanged: (focused) {
+              widget.onFocusChanged?.call(focused);
+            },
           ),
         ),
       ),

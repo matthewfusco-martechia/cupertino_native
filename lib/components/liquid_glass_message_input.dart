@@ -1,11 +1,24 @@
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:cupertino_native/cupertino_native.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
+
+/// Recording states for voice input
+enum _RecordingState {
+  idle,
+  recording,
+  transcribing,
+}
 
 /// A two-row liquid glass message composer that reuses [LiquidGlassTextField].
 ///
 /// Row 1: a plain (non-glass) text field. Row 2: plus + Search on the
 /// left, mic on the right. The outer glass container grows with text height.
+///
+/// Supports OpenAI-style voice recording with waveform animation and speech-to-text.
 class LiquidGlassMessageInput extends StatefulWidget {
+  /// Creates a liquid glass message input with voice recording support.
   const LiquidGlassMessageInput({
     super.key,
     this.controller,
@@ -71,7 +84,11 @@ class LiquidGlassMessageInput extends StatefulWidget {
 
   /// Send icon customization.
   final String sendIconName;
+  
+  /// Send icon color.
   final Color sendIconColor;
+  
+  /// Send button background tint.
   final Color sendTint;
 
   /// Shared control tint (plus/search/mic backgrounds).
@@ -79,11 +96,23 @@ class LiquidGlassMessageInput extends StatefulWidget {
 
   /// Icon/label customization.
   final String plusIconName;
+  
+  /// Plus icon color.
   final Color? plusIconColor;
+  
+  /// Search icon name.
   final String searchIconName;
+  
+  /// Search icon color.
   final Color? searchIconColor;
+  
+  /// Search label text.
   final String searchLabel;
+  
+  /// Microphone icon name.
   final String micIconName;
+  
+  /// Microphone icon color.
   final Color? micIconColor;
 
   @override
@@ -95,6 +124,256 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
   String _text = '';
   late final TextEditingController _controller =
       widget.controller ?? TextEditingController(text: widget.initialText ?? '');
+
+  // Voice recording state
+  _RecordingState _recordingState = _RecordingState.idle;
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechInitialized = false;
+  String _errorMessage = '';
+  Timer? _errorTimer;
+  bool _isProcessingRecording = false; // Debounce flag
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeSpeech();
+  }
+
+  @override
+  void dispose() {
+    _errorTimer?.cancel();
+    if (_speechInitialized && _speech.isListening) {
+      _speech.stop();
+    }
+    if (widget.controller == null) {
+      _controller.dispose();
+    }
+    super.dispose();
+  }
+
+  /// Initialize speech recognition
+  Future<void> _initializeSpeech() async {
+    try {
+      _speechInitialized = await _speech.initialize(
+        onError: (error) {
+          if (mounted) {
+            setState(() {
+              _recordingState = _RecordingState.idle;
+              _errorMessage = 'Speech error: ${error.errorMsg}';
+              _isProcessingRecording = false;
+            });
+            _startErrorTimer();
+          }
+        },
+        onStatus: (status) {
+          if (status == 'notListening' && 
+              _recordingState == _RecordingState.recording &&
+              mounted) {
+            // Speech stopped listening (e.g., timeout)
+            _handleStopRecording();
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to initialize speech recognition';
+          _isProcessingRecording = false;
+        });
+        _startErrorTimer();
+      }
+    }
+  }
+
+  /// Start the error timer to clear error messages after 3 seconds
+  void _startErrorTimer() {
+    _errorTimer?.cancel();
+    _errorTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _errorMessage = '';
+        });
+      }
+    });
+  }
+
+  /// Show settings dialog when permission is permanently denied
+  Future<void> _showPermissionDialog() async {
+    if (!mounted) return;
+    
+    await showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Microphone Access Required'),
+        content: const Text(
+          'To enable voice input, please allow microphone access in Settings.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('Open Settings'),
+            onPressed: () {
+              Navigator.of(context).pop();
+              openAppSettings();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Handle starting voice recording
+  Future<void> _handleStartRecording() async {
+    // Debounce: prevent multiple simultaneous recording starts
+    if (_isProcessingRecording) return;
+    _isProcessingRecording = true;
+
+    if (!_speechInitialized) {
+      setState(() {
+        _errorMessage = 'Speech recognition not available';
+        _isProcessingRecording = false;
+      });
+      _startErrorTimer();
+      return;
+    }
+
+    try {
+      // Check microphone permission status first
+      final micStatus = await Permission.microphone.status;
+      final speechStatus = await Permission.speech.status;
+      
+      // If permanently denied, show settings dialog
+      if (micStatus.isPermanentlyDenied || speechStatus.isPermanentlyDenied) {
+        _isProcessingRecording = false;
+        await _showPermissionDialog();
+        return;
+      }
+      
+      // If denied but not permanently, request again
+      if (micStatus.isDenied || speechStatus.isDenied) {
+        final micResult = await Permission.microphone.request();
+        final speechResult = await Permission.speech.request();
+        
+        if (micResult.isDenied || speechResult.isDenied) {
+          setState(() {
+            _errorMessage = 'Microphone permission denied';
+            _isProcessingRecording = false;
+          });
+          _startErrorTimer();
+          return;
+        }
+        
+        if (micResult.isPermanentlyDenied || speechResult.isPermanentlyDenied) {
+          _isProcessingRecording = false;
+          await _showPermissionDialog();
+          return;
+        }
+      }
+
+      final available = await _speech.initialize();
+      if (!available) {
+        setState(() {
+          _errorMessage = 'Microphone permission denied';
+          _isProcessingRecording = false;
+        });
+        _startErrorTimer();
+        return;
+      }
+
+      setState(() {
+        _recordingState = _RecordingState.recording;
+        _errorMessage = '';
+      });
+
+      await _speech.listen(
+        onResult: (result) {
+          // Update with partial results if needed
+          if (result.finalResult && mounted) {
+            _handleStopRecording();
+          }
+        },
+        listenOptions: stt.SpeechListenOptions(
+          listenMode: stt.ListenMode.confirmation,
+          cancelOnError: true,
+          partialResults: false,
+        ),
+      );
+
+      _isProcessingRecording = false;
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _recordingState = _RecordingState.idle;
+          _errorMessage = 'Failed to start recording';
+          _isProcessingRecording = false;
+        });
+        _startErrorTimer();
+      }
+    }
+  }
+
+  /// Handle stopping voice recording and transcribing
+  Future<void> _handleStopRecording() async {
+    if (_recordingState != _RecordingState.recording) return;
+
+    setState(() {
+      _recordingState = _RecordingState.transcribing;
+    });
+
+    try {
+      await _speech.stop();
+
+      // Get the transcribed text
+      final transcribedText = _speech.lastRecognizedWords;
+
+      if (mounted) {
+        if (transcribedText.isNotEmpty) {
+          // Insert transcribed text into the input field
+          final currentText = _controller.text;
+          final newText = currentText.isEmpty
+              ? transcribedText
+              : '$currentText $transcribedText';
+          _controller.text = newText;
+          setState(() {
+            _text = newText;
+            _recordingState = _RecordingState.idle;
+            _isProcessingRecording = false;
+          });
+          widget.onChanged?.call(newText);
+        } else {
+          setState(() {
+            _recordingState = _RecordingState.idle;
+            _errorMessage = 'No speech detected';
+            _isProcessingRecording = false;
+          });
+          _startErrorTimer();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _recordingState = _RecordingState.idle;
+          _errorMessage = 'Transcription failed';
+          _isProcessingRecording = false;
+        });
+        _startErrorTimer();
+      }
+    }
+  }
+
+  /// Handle mic button press (toggle recording)
+  Future<void> _handleMicPressed() async {
+    if (_recordingState == _RecordingState.idle) {
+      await _handleStartRecording();
+    } else if (_recordingState == _RecordingState.recording) {
+      await _handleStopRecording();
+    }
+    // Ignore if transcribing
+  }
 
   double _computeHeight() {
     // Base: text row (~52 with padding) + spacer + controls (~52) + outer padding.
@@ -115,114 +394,237 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
 
   @override
   Widget build(BuildContext context) {
-    const buttonSize = 44.0;
-
     final targetHeight = _computeHeight().clamp(120.0, 400.0);
+
+    // Show shimmer text when recording or transcribing
+    final String? shimmerText = _recordingState == _RecordingState.recording
+        ? 'Recording...'
+        : _recordingState == _RecordingState.transcribing
+            ? 'Transcribing...'
+            : null;
 
     return SizedBox(
       height: targetHeight,
       width: double.infinity,
-      child: CNGlassEffectContainer(
-        glassStyle: CNGlassStyle.regular,
-        cornerRadius: 22.0,
-        tint: const Color(0xFF0D0D0F).withValues(alpha: 0.78),
-        height: targetHeight,
-        width: double.infinity,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              CupertinoTextField(
-                controller: _controller,
-                placeholder: widget.placeholder,
-                onChanged: (value) {
-                  setState(() => _text = value);
-                  widget.onChanged?.call(value);
-                },
-                maxLines: 4,
-                minLines: 1,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
-                decoration: null,
-                style: const TextStyle(
-                  color: CupertinoColors.white,
-                  fontSize: 17,
-                ),
-                placeholderStyle: TextStyle(
-                  color: CupertinoColors.white.withOpacity(0.35),
-                  fontSize: 17,
-                ),
-                cursorColor: CupertinoColors.activeBlue,
-              ),
-              const SizedBox(height: 10.0),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Stack(
+        children: [
+          // Main input container
+          CNGlassEffectContainer(
+            glassStyle: CNGlassStyle.regular,
+            cornerRadius: 22.0,
+            tint: const Color(0xFF0D0D0F).withValues(alpha: 0.78),
+            height: targetHeight,
+            width: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  // Text input field with shimmer overlay
+                  Stack(
                     children: [
-                      if (widget.plusMenuItems != null &&
-                          widget.plusMenuItems!.isNotEmpty)
-                        CNPopupMenuButton.icon(
-                          buttonIcon: CNSymbol(
-                            widget.plusIconName,
-                            size: 18,
-                            color: widget.plusIconColor,
-                          ),
-                          size: 44.0,
-                          items: widget.plusMenuItems!,
-                          onSelected: widget.onPlusMenuSelected ?? (_) {},
-                          tint: widget.controlTint,
-                          buttonStyle: CNButtonStyle.glass,
-                        )
-                      else
-                        CNButton.icon(
-                          icon: CNSymbol(
-                            widget.plusIconName,
-                            size: 18,
-                            color: widget.plusIconColor,
-                          ),
-                          size: 44.0,
-                          style: CNButtonStyle.glass,
-                          tint: widget.controlTint,
-                          onPressed: widget.onPlusPressed,
+                      CupertinoTextField(
+                        controller: _controller,
+                        placeholder: shimmerText == null ? widget.placeholder : '',
+                        onChanged: (value) {
+                          setState(() => _text = value);
+                          widget.onChanged?.call(value);
+                        },
+                        maxLines: 4,
+                        minLines: 1,
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
+                        decoration: const BoxDecoration(
+                          color: CupertinoColors.transparent,
                         ),
-                      const SizedBox(width: 8.0),
-                      if (widget.showSearch)
-                        _GlassPillButton(
-                          iconName: widget.searchIconName,
-                          iconColor: widget.searchIconColor,
-                          label: widget.searchLabel,
-                          tint: widget.controlTint,
-                          onPressed: widget.onSearchPressed,
+                        style: TextStyle(
+                          color: shimmerText != null
+                              ? CupertinoColors.white.withValues(alpha: 0.0)
+                              : CupertinoColors.white,
+                          fontSize: 17,
+                        ),
+                        placeholderStyle: TextStyle(
+                          color: CupertinoColors.white.withValues(alpha: 0.35),
+                          fontSize: 17,
+                        ),
+                        cursorColor: CupertinoColors.activeBlue,
+                        enabled: shimmerText == null,
+                      ),
+                      // Shimmer text overlay
+                      if (shimmerText != null)
+                        Positioned.fill(
+                          child: Container(
+                            color: CupertinoColors.transparent,
+                            child: IgnorePointer(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12.0, vertical: 12.0),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: _ShimmerText(text: shimmerText),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                     ],
                   ),
-                  if (widget.showMic)
-                    _TrailingActionButton(
-                      hasText: _text.isNotEmpty,
-                      micTint: widget.controlTint,
-                      sendTint: widget.sendTint,
-                      sendIconName: widget.sendIconName,
-                      sendIconColor: widget.sendIconColor,
-                      micIconName: widget.micIconName,
-                      micIconColor: widget.micIconColor,
-                      onMicPressed: widget.onStopPressed,
-                      onSendPressed: _handleSend,
-                      buttonSize: 44.0,
-                    ),
+                  const SizedBox(height: 10.0),
+                  // Control buttons row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.plusMenuItems != null &&
+                              widget.plusMenuItems!.isNotEmpty)
+                            CNPopupMenuButton.icon(
+                              buttonIcon: CNSymbol(
+                                widget.plusIconName,
+                                size: 18,
+                                color: widget.plusIconColor,
+                              ),
+                              size: 44.0,
+                              items: widget.plusMenuItems!,
+                              onSelected: widget.onPlusMenuSelected ?? (_) {},
+                              tint: widget.controlTint,
+                              buttonStyle: CNButtonStyle.glass,
+                            )
+                          else
+                            CNButton.icon(
+                              icon: CNSymbol(
+                                widget.plusIconName,
+                                size: 18,
+                                color: widget.plusIconColor,
+                              ),
+                              size: 44.0,
+                              style: CNButtonStyle.glass,
+                              tint: widget.controlTint,
+                              onPressed: widget.onPlusPressed,
+                            ),
+                          const SizedBox(width: 8.0),
+                          if (widget.showSearch)
+                            _GlassPillButton(
+                              iconName: widget.searchIconName,
+                              iconColor: widget.searchIconColor,
+                              label: widget.searchLabel,
+                              tint: widget.controlTint,
+                              onPressed: widget.onSearchPressed,
+                            ),
+                        ],
+                      ),
+                      if (widget.showMic)
+                        _TrailingActionButton(
+                          hasText: _text.isNotEmpty,
+                          micTint: widget.controlTint,
+                          sendTint: widget.sendTint,
+                          sendIconName: widget.sendIconName,
+                          sendIconColor: widget.sendIconColor,
+                          micIconName: widget.micIconName,
+                          micIconColor: widget.micIconColor,
+                          onMicPressed: _handleMicPressed,
+                          onSendPressed: _handleSend,
+                          buttonSize: 44.0,
+                          recordingState: _recordingState,
+                        ),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+
+          // Error message overlay
+          if (_errorMessage.isNotEmpty)
+            Positioned(
+              top: 8,
+              left: 14,
+              right: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: CupertinoColors.systemRed.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _errorMessage,
+                  style: const TextStyle(
+                    color: CupertinoColors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
+/// Shimmer text widget for recording/transcribing states
+class _ShimmerText extends StatefulWidget {
+  const _ShimmerText({required this.text});
+
+  final String text;
+
+  @override
+  State<_ShimmerText> createState() => _ShimmerTextState();
+}
+
+class _ShimmerTextState extends State<_ShimmerText>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return DefaultTextStyle(
+          style: const TextStyle(
+            backgroundColor: CupertinoColors.transparent,
+          ),
+          child: Text(
+            widget.text,
+            style: TextStyle(
+              color: CupertinoColors.white.withValues(alpha: _animation.value * 0.6 + 0.4),
+              fontSize: 17,
+              fontWeight: FontWeight.w400,
+              decoration: TextDecoration.none,
+              backgroundColor: CupertinoColors.transparent,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Trailing action button (mic or send)
 class _TrailingActionButton extends StatelessWidget {
   const _TrailingActionButton({
     required this.hasText,
@@ -232,6 +634,7 @@ class _TrailingActionButton extends StatelessWidget {
     required this.sendIconName,
     required this.sendIconColor,
     required this.micIconName,
+    required this.recordingState,
     this.micIconColor,
     this.onMicPressed,
     this.onSendPressed,
@@ -247,32 +650,44 @@ class _TrailingActionButton extends StatelessWidget {
   final Color? micIconColor;
   final VoidCallback? onMicPressed;
   final VoidCallback? onSendPressed;
+  final _RecordingState recordingState;
 
   @override
   Widget build(BuildContext context) {
-    if (!hasText) {
+    // Show send button if there's text
+    if (hasText) {
       return CNButton.icon(
-        icon: CNSymbol(micIconName, size: 18, color: micIconColor),
+        icon: CNSymbol(
+          sendIconName,
+          size: 16,
+          color: sendIconColor,
+        ),
         size: buttonSize,
-        style: CNButtonStyle.glass,
-        tint: micTint,
-        onPressed: onMicPressed,
+        style: CNButtonStyle.prominentGlass,
+        tint: sendTint,
+        onPressed: onSendPressed,
       );
     }
+
+    // Show mic button with recording state indication
+    final isRecording = recordingState == _RecordingState.recording;
     return CNButton.icon(
       icon: CNSymbol(
-        sendIconName,
-        size: 16,
-        color: sendIconColor,
+        isRecording ? 'stop.circle' : micIconName,
+        size: 18,
+        color: isRecording ? CupertinoColors.systemRed : micIconColor,
       ),
       size: buttonSize,
-      style: CNButtonStyle.prominentGlass,
-      tint: sendTint,
-      onPressed: onSendPressed,
+      style: CNButtonStyle.glass,
+      tint: isRecording 
+          ? CupertinoColors.systemRed.withValues(alpha: 0.2)
+          : micTint,
+      onPressed: onMicPressed,
     );
   }
 }
 
+/// Glass pill button for Search
 class _GlassPillButton extends StatelessWidget {
   const _GlassPillButton({
     required this.iconName,
@@ -345,4 +760,3 @@ class _GlassPillButton extends StatelessWidget {
     );
   }
 }
-

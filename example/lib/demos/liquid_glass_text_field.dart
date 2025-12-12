@@ -14,6 +14,7 @@ class _LiquidGlassTextFieldDemoPageState
   final TextEditingController _controller1 = TextEditingController();
   final TextEditingController _controller2 = TextEditingController();
   final TextEditingController _controller3 = TextEditingController();
+  final TextEditingController _controller4 = TextEditingController();
   String _submittedText = '';
 
   @override
@@ -21,6 +22,7 @@ class _LiquidGlassTextFieldDemoPageState
     _controller1.dispose();
     _controller2.dispose();
     _controller3.dispose();
+    _controller4.dispose();
     super.dispose();
   }
 
@@ -39,6 +41,7 @@ class _LiquidGlassTextFieldDemoPageState
           ),
         ),
         child: SafeArea(
+          child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
@@ -54,7 +57,7 @@ class _LiquidGlassTextFieldDemoPageState
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Send button appears when you type!',
+                  'Type or speak with voice input!',
                   style: TextStyle(
                     fontSize: 16,
                     color: CupertinoColors.white,
@@ -133,6 +136,31 @@ class _LiquidGlassTextFieldDemoPageState
                   },
                 ),
 
+                  const SizedBox(height: 32),
+
+                  // Demo 4: Voice Input
+                  const Text(
+                  'Voice Input (tap mic to record)',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: CupertinoColors.white,
+                  ),
+                  ),
+                  const SizedBox(height: 12),
+                  LiquidGlassTextField(
+                    controller: _controller4,
+                    placeholder: 'Type or speak...',
+                    maxLines: 5,
+                    enableVoiceInput: true,
+                    micIconName: 'mic.fill',
+                    onSubmitted: (text) {
+                      setState(() {
+                        _submittedText = text;
+                      });
+                    },
+                  ),
+
                 const SizedBox(height: 32),
 
                 if (_submittedText.isNotEmpty) ...[
@@ -159,6 +187,7 @@ class _LiquidGlassTextFieldDemoPageState
                   ),
                 ],
               ],
+              ),
             ),
           ),
         ),
