@@ -227,6 +227,18 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
               _handleStopRecording();
             }
           },
+        ).timeout(
+          const Duration(seconds: 5),
+          onTimeout: () {
+            if (mounted) {
+              setState(() {
+                _errorMessage = 'Speech initialization timed out';
+                _isProcessingRecording = false;
+              });
+              _startErrorTimer();
+            }
+            return false;
+          },
         );
         
         if (!_speechInitialized) {
