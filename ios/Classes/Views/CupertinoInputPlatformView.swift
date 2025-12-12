@@ -58,19 +58,18 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     self.fontSize = fontSize
     self.placeholderText = placeholder
     
-    // Calculate height bounds
+    // Calculate height bounds and padding
     let lineHeight = fontSize * 1.2
-    let verticalPadding: CGFloat = 16 // 8 top + 8 bottom
-    self.minHeight = lineHeight + verticalPadding
-    self.maxHeight = lineHeight * CGFloat(maxLines) + verticalPadding
+    let textVerticalPadding: CGFloat = 16 // 8 top + 8 bottom for height calculation
+    self.minHeight = lineHeight + textVerticalPadding
+    self.maxHeight = lineHeight * CGFloat(maxLines) + textVerticalPadding
     
     super.init()
     
     container.backgroundColor = .clear
     container.clipsToBounds = true
     
-    // Calculate vertical padding to center text in minHeight
-    let lineHeight = fontSize * 1.2
+    // Calculate vertical padding to center text in minHeight container
     let verticalPadding = max(0, (self.minHeight - lineHeight) / 2.0)
     
     // Configure text view - SIMPLE SETUP
