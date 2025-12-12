@@ -154,36 +154,38 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with 
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // When app pauses or resumes, invalidate current session and cleanup
-    // This is synchronous and very fast - no async work
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.resumed) {
-      _sessionId++; // Invalidate any pending callbacks
-      _cleanupSpeech(); // Cleanup immediately
-      
-      // Reset UI state synchronously
-      if (_recordingState != _RecordingState.idle) {
-        _recordingState = _RecordingState.idle;
-        _isProcessingRecording = false;
-        // Schedule setState for next frame to avoid lifecycle issues
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {});
-          }
-        });
-      }
+    // CRITICAL: Clean up on ANY lifecycle change to prevent native crashes
+    // inactive = user started leaving (e.g., opened app switcher, notification)
+    // paused = app fully in background
+    // resumed = app came back
+    // All of these need immediate cleanup to prevent native speech framework crashes
+    
+    _sessionId++; // Invalidate any pending callbacks immediately
+    
+    // Force cancel the native speech recognizer synchronously
+    try {
+      _speech?.cancel();
+    } catch (e) {
+      // Ignore - might already be invalid
     }
+    _speech = null;
+    
+    // Reset state synchronously (no callbacks, no async)
+    _recordingState = _RecordingState.idle;
+    _isProcessingRecording = false;
   }
 
-  /// Clean up speech resources
+  /// Clean up speech resources - called aggressively on any state change
   void _cleanupSpeech() {
-    try {
-      final speech = _speech;
-      if (speech != null && speech.isListening) {
-        speech.cancel();
-      }
-    } catch (e) {
-      // Ignore cleanup errors
-    }
+    final speech = _speech;
+    if (speech == null) return;
+    
+    // Try cancel first (faster, abandons everything)
+    try { speech.cancel(); } catch (e) { /* ignore */ }
+    
+    // Then try stop as backup
+    try { speech.stop(); } catch (e) { /* ignore */ }
+    
     _speech = null;
   }
 
