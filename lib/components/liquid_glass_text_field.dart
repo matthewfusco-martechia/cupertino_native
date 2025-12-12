@@ -99,7 +99,7 @@ class LiquidGlassTextField extends StatefulWidget {
 }
 
 /// State for [LiquidGlassTextField].
-class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
+class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with WidgetsBindingObserver {
   double _currentHeight = 50.0;
   final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
   late TextEditingController _controller;
@@ -121,16 +121,46 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     _currentHeight = widget.minHeight;
     _controller = widget.controller ?? TextEditingController();
     _currentText = _controller.text;
+    
+    // Add lifecycle observer to detect app pause/resume
+    if (widget.enableVoiceInput) {
+      WidgetsBinding.instance.addObserver(this);
+    }
   }
 
   @override
   void dispose() {
+    if (widget.enableVoiceInput) {
+      WidgetsBinding.instance.removeObserver(this);
+    }
     _cleanupSpeech();
     _errorTimer?.cancel();
     if (widget.controller == null) {
       _controller.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app pauses or resumes, invalidate current session and cleanup
+    // This is synchronous and very fast - no async work
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.resumed) {
+      _sessionId++; // Invalidate any pending callbacks
+      _cleanupSpeech(); // Cleanup immediately
+      
+      // Reset UI state synchronously
+      if (_recordingState != _RecordingState.idle) {
+        _recordingState = _RecordingState.idle;
+        _isProcessingRecording = false;
+        // Schedule setState for next frame to avoid lifecycle issues
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {});
+          }
+        });
+      }
+    }
   }
 
   /// Start the error timer to clear error messages after 3 seconds
@@ -158,10 +188,16 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     _speech = null;
   }
 
+  // Session ID to ignore stale callbacks after permission changes
+  int _sessionId = 0;
+
   /// Handle starting voice recording
   Future<void> _handleStartRecording() async {
     if (_isProcessingRecording) return;
     _isProcessingRecording = true;
+    
+    // Increment session ID to invalidate any old callbacks
+    final currentSession = ++_sessionId;
 
     try {
       // Always create a fresh SpeechToText instance
@@ -171,9 +207,14 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
       final speech = _speech!;
       
       // Initialize with short timeout
+      // All callbacks are wrapped in try-catch and check session ID
       final available = await speech.initialize(
         onError: (error) {
-          if (mounted) {
+          try {
+            // Ignore if session changed (permissions changed mid-flight)
+            if (currentSession != _sessionId) return;
+            if (!mounted) return;
+            
             setState(() {
               _recordingState = _RecordingState.idle;
               _errorMessage = 'Speech error: ${error.errorMsg}';
@@ -181,19 +222,34 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
             });
             _startErrorTimer();
             _cleanupSpeech();
+          } catch (e) {
+            // Ignore all callback errors
           }
         },
         onStatus: (status) {
-          if (status == 'notListening' && 
-              _recordingState == _RecordingState.recording &&
-              mounted) {
-            _handleStopRecording();
+          try {
+            // Ignore if session changed (permissions changed mid-flight)
+            if (currentSession != _sessionId) return;
+            if (!mounted) return;
+            
+            if (status == 'notListening' && 
+                _recordingState == _RecordingState.recording) {
+              _handleStopRecording();
+            }
+          } catch (e) {
+            // Ignore all callback errors
           }
         },
       ).timeout(
         const Duration(seconds: 3),
         onTimeout: () => false,
       );
+      
+      // Check if session is still valid after async operation
+      if (currentSession != _sessionId) {
+        _cleanupSpeech();
+        return;
+      }
       
       if (!available) {
         if (mounted) {
@@ -207,15 +263,25 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
         return;
       }
 
-      setState(() {
-        _recordingState = _RecordingState.recording;
-        _errorMessage = '';
-      });
+      if (mounted) {
+        setState(() {
+          _recordingState = _RecordingState.recording;
+          _errorMessage = '';
+        });
+      }
 
       await speech.listen(
         onResult: (result) {
-          if (result.finalResult && mounted) {
-            _handleStopRecording();
+          try {
+            // Ignore if session changed (permissions changed mid-flight)
+            if (currentSession != _sessionId) return;
+            if (!mounted) return;
+            
+            if (result.finalResult) {
+              _handleStopRecording();
+            }
+          } catch (e) {
+            // Ignore all callback errors
           }
         },
         listenOptions: stt.SpeechListenOptions(

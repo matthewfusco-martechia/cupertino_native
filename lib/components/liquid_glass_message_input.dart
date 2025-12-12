@@ -119,7 +119,7 @@ class LiquidGlassMessageInput extends StatefulWidget {
       _LiquidGlassMessageInputState();
 }
 
-class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
+class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with WidgetsBindingObserver {
   String _text = '';
   late final TextEditingController _controller =
       widget.controller ?? TextEditingController(text: widget.initialText ?? '');
@@ -130,21 +130,48 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
   String _errorMessage = '';
   Timer? _errorTimer;
   bool _isProcessingRecording = false; // Debounce flag
+  
+  // Session ID to ignore stale callbacks after permission changes
+  int _sessionId = 0;
 
   @override
   void initState() {
     super.initState();
-    // Speech is initialized lazily when mic is tapped
+    // Add lifecycle observer to detect app pause/resume
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cleanupSpeech();
     _errorTimer?.cancel();
     if (widget.controller == null) {
       _controller.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app pauses or resumes, invalidate current session and cleanup
+    // This is synchronous and very fast - no async work
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.resumed) {
+      _sessionId++; // Invalidate any pending callbacks
+      _cleanupSpeech(); // Cleanup immediately
+      
+      // Reset UI state synchronously
+      if (_recordingState != _RecordingState.idle) {
+        _recordingState = _RecordingState.idle;
+        _isProcessingRecording = false;
+        // Schedule setState for next frame to avoid lifecycle issues
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {});
+          }
+        });
+      }
+    }
   }
 
   /// Clean up speech resources
@@ -177,6 +204,9 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
     // Debounce: prevent multiple simultaneous recording starts
     if (_isProcessingRecording) return;
     _isProcessingRecording = true;
+    
+    // Increment session ID to invalidate any old callbacks
+    final currentSession = ++_sessionId;
 
     try {
       // Always create a fresh SpeechToText instance
@@ -186,9 +216,14 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
       final speech = _speech!;
       
       // Initialize with short timeout
+      // All callbacks are wrapped in try-catch and check session ID
       final available = await speech.initialize(
         onError: (error) {
-          if (mounted) {
+          try {
+            // Ignore if session changed (permissions changed mid-flight)
+            if (currentSession != _sessionId) return;
+            if (!mounted) return;
+            
             setState(() {
               _recordingState = _RecordingState.idle;
               _errorMessage = 'Speech error: ${error.errorMsg}';
@@ -196,19 +231,34 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
             });
             _startErrorTimer();
             _cleanupSpeech();
+          } catch (e) {
+            // Ignore all callback errors
           }
         },
         onStatus: (status) {
-          if (status == 'notListening' && 
-              _recordingState == _RecordingState.recording &&
-              mounted) {
-            _handleStopRecording();
+          try {
+            // Ignore if session changed (permissions changed mid-flight)
+            if (currentSession != _sessionId) return;
+            if (!mounted) return;
+            
+            if (status == 'notListening' && 
+                _recordingState == _RecordingState.recording) {
+              _handleStopRecording();
+            }
+          } catch (e) {
+            // Ignore all callback errors
           }
         },
       ).timeout(
         const Duration(seconds: 3),
         onTimeout: () => false,
       );
+      
+      // Check if session is still valid after async operation
+      if (currentSession != _sessionId) {
+        _cleanupSpeech();
+        return;
+      }
       
       if (!available) {
         if (mounted) {
@@ -222,15 +272,25 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
         return;
       }
 
-      setState(() {
-        _recordingState = _RecordingState.recording;
-        _errorMessage = '';
-      });
+      if (mounted) {
+        setState(() {
+          _recordingState = _RecordingState.recording;
+          _errorMessage = '';
+        });
+      }
 
       await speech.listen(
         onResult: (result) {
-          if (result.finalResult && mounted) {
-            _handleStopRecording();
+          try {
+            // Ignore if session changed (permissions changed mid-flight)
+            if (currentSession != _sessionId) return;
+            if (!mounted) return;
+            
+            if (result.finalResult) {
+              _handleStopRecording();
+            }
+          } catch (e) {
+            // Ignore all callback errors
           }
         },
         listenOptions: stt.SpeechListenOptions(
