@@ -119,7 +119,7 @@ class LiquidGlassMessageInput extends StatefulWidget {
       _LiquidGlassMessageInputState();
 }
 
-class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with WidgetsBindingObserver {
+class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
   String _text = '';
   late final TextEditingController _controller =
       widget.controller ?? TextEditingController(text: widget.initialText ?? '');
@@ -137,42 +137,16 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> with 
   @override
   void initState() {
     super.initState();
-    // Add lifecycle observer to detect app pause/resume
-    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _cleanupSpeech();
     _errorTimer?.cancel();
     if (widget.controller == null) {
       _controller.dispose();
     }
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // CRITICAL: Clean up on ANY lifecycle change to prevent native crashes
-    // inactive = user started leaving (e.g., opened app switcher, notification)
-    // paused = app fully in background
-    // resumed = app came back
-    // All of these need immediate cleanup to prevent native speech framework crashes
-    
-    _sessionId++; // Invalidate any pending callbacks immediately
-    
-    // Force cancel the native speech recognizer synchronously
-    try {
-      _speech?.cancel();
-    } catch (e) {
-      // Ignore - might already be invalid
-    }
-    _speech = null;
-    
-    // Reset state synchronously (no callbacks, no async)
-    _recordingState = _RecordingState.idle;
-    _isProcessingRecording = false;
   }
 
   /// Clean up speech resources - called aggressively on any state change

@@ -99,7 +99,7 @@ class LiquidGlassTextField extends StatefulWidget {
 }
 
 /// State for [LiquidGlassTextField].
-class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with WidgetsBindingObserver {
+class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
   double _currentHeight = 50.0;
   final GlobalKey<CNInputState> _inputKey = GlobalKey<CNInputState>();
   late TextEditingController _controller;
@@ -121,47 +121,16 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> with Widgets
     _currentHeight = widget.minHeight;
     _controller = widget.controller ?? TextEditingController();
     _currentText = _controller.text;
-    
-    // Add lifecycle observer to detect app pause/resume
-    if (widget.enableVoiceInput) {
-      WidgetsBinding.instance.addObserver(this);
-    }
   }
 
   @override
   void dispose() {
-    if (widget.enableVoiceInput) {
-      WidgetsBinding.instance.removeObserver(this);
-    }
     _cleanupSpeech();
     _errorTimer?.cancel();
     if (widget.controller == null) {
       _controller.dispose();
     }
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // CRITICAL: Clean up on ANY lifecycle change to prevent native crashes
-    // inactive = user started leaving (e.g., opened app switcher, notification)
-    // paused = app fully in background
-    // resumed = app came back
-    // All of these need immediate cleanup to prevent native speech framework crashes
-    
-    _sessionId++; // Invalidate any pending callbacks immediately
-    
-    // Force cancel the native speech recognizer synchronously
-    try {
-      _speech?.cancel();
-    } catch (e) {
-      // Ignore - might already be invalid
-    }
-    _speech = null;
-    
-    // Reset state synchronously (no callbacks, no async)
-    _recordingState = _RecordingState.idle;
-    _isProcessingRecording = false;
   }
 
   /// Start the error timer to clear error messages after 3 seconds
