@@ -253,6 +253,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                 child: _hasText
                     // Send button when there's text
                     ? CNButton.icon(
+                        key: const ValueKey('send_button'),
                         icon: CNSymbol(
                           effectiveIconName,
                           size: 18,
@@ -265,6 +266,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                       )
                     // Placeholder icon when empty
                     : CNButton.icon(
+                        key: const ValueKey('placeholder_button'),
                         icon: CNSymbol(
                           widget.placeholderIconName,
                           size: 18,
