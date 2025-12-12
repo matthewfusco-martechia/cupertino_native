@@ -202,21 +202,30 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
     if (_isProcessingRecording) return;
     _isProcessingRecording = true;
 
-    if (!_speechInitialized) {
-      setState(() {
-        _errorMessage = 'Speech recognition not available';
-        _isProcessingRecording = false;
-      });
-      _startErrorTimer();
-      return;
-    }
-
-    try {
-      // Check if speech is still available (permissions might have been revoked)
-      if (!_speech.isAvailable) {
-        // Re-initialize to check permissions
-        final available = await _speech.initialize();
-        if (!available) {
+    // If speech wasn't initialized or isn't available, try to initialize it now
+    if (!_speechInitialized || !_speech.isAvailable) {
+      try {
+        _speechInitialized = await _speech.initialize(
+          onError: (error) {
+            if (mounted) {
+              setState(() {
+                _recordingState = _RecordingState.idle;
+                _errorMessage = 'Speech error: ${error.errorMsg}';
+                _isProcessingRecording = false;
+              });
+              _startErrorTimer();
+            }
+          },
+          onStatus: (status) {
+            if (status == 'notListening' && 
+                _recordingState == _RecordingState.recording &&
+                mounted) {
+              _handleStopRecording();
+            }
+          },
+        );
+        
+        if (!_speechInitialized) {
           setState(() {
             _errorMessage = 'Microphone permission required';
             _isProcessingRecording = false;
@@ -224,7 +233,19 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
           _startErrorTimer();
           return;
         }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Failed to initialize speech recognition';
+            _isProcessingRecording = false;
+          });
+          _startErrorTimer();
+        }
+        return;
       }
+    }
+
+    try {
 
       setState(() {
         _recordingState = _RecordingState.recording;
