@@ -69,6 +69,10 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     container.backgroundColor = .clear
     container.clipsToBounds = true
     
+    // Calculate vertical padding to center text in minHeight
+    let lineHeight = fontSize * 1.2
+    let verticalPadding = max(0, (self.minHeight - lineHeight) / 2.0)
+    
     // Configure text view - SIMPLE SETUP
     textView.translatesAutoresizingMaskIntoConstraints = false
     textView.text = text
@@ -76,8 +80,8 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     textView.isEditable = enabled
     textView.isSelectable = true
     textView.delegate = self
-    // Smaller vertical padding for better centering with icons
-    textView.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 8, right: 4)
+    // Match padding with placeholder for perfect alignment
+    textView.textContainerInset = UIEdgeInsets(top: verticalPadding, left: 4, bottom: verticalPadding, right: 4)
     textView.textContainer.lineFragmentPadding = 0
     
     // KEY: Always enable scrolling for multi-line - this is how iMessage works
@@ -134,25 +138,20 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     container.addSubview(textView)
     container.addSubview(placeholderLabel)
     
-    // Simple constraints - fill the container
+    // Constraints - textView fills container, placeholder matches text position
     NSLayoutConstraint.activate([
       textView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
       textView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
       textView.topAnchor.constraint(equalTo: container.topAnchor),
       textView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
       
-      // Center placeholder vertically to align with button
+      // Placeholder sits at same position as text (using same insets)
       placeholderLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 4),
       placeholderLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -4),
-      placeholderLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+      placeholderLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: verticalPadding),
     ])
     
     setupMethodChannel()
-    
-    // Center text vertically after layout
-    DispatchQueue.main.async { [weak self] in
-      self?.centerTextVerticallyIfNeeded()
-    }
   }
   
   private func setupMethodChannel() {
@@ -267,22 +266,6 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
   
   func view() -> UIView { container }
   
-  // Center text vertically when content is smaller than container
-  private func centerTextVerticallyIfNeeded() {
-    // Force layout to get accurate content size
-    textView.layoutIfNeeded()
-    
-    let contentHeight = textView.contentSize.height
-    let containerHeight = container.bounds.height
-    
-    // Only center if content is smaller than container
-    if contentHeight > 0 && containerHeight > 0 && contentHeight < containerHeight {
-      let topInset = (containerHeight - contentHeight) / 2.0
-      textView.contentInset = UIEdgeInsets(top: topInset, left: 0, bottom: 0, right: 0)
-    } else {
-      textView.contentInset = .zero
-    }
-  }
   
   // MARK: - UITextViewDelegate
   
@@ -297,28 +280,14 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     
     // Update height
     updateHeight()
-    
-    // Delay centering to allow Flutter to update container size first
-    // Use multiple delays to handle async Flutter layout
-    DispatchQueue.main.async { [weak self] in
-      self?.container.layoutIfNeeded()
-      self?.centerTextVerticallyIfNeeded()
-    }
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-      self?.centerTextVerticallyIfNeeded()
-    }
   }
   
   func textViewDidBeginEditing(_ textView: UITextView) {
     channel.invokeMethod("focusChanged", arguments: ["focused": true])
-    // Keep vertical centering when editing starts
-    centerTextVerticallyIfNeeded()
   }
   
   func textViewDidEndEditing(_ textView: UITextView) {
     channel.invokeMethod("focusChanged", arguments: ["focused": false])
-    // Re-center text when editing ends if content is small
-    centerTextVerticallyIfNeeded()
   }
   
   func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {

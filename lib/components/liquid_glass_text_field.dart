@@ -185,7 +185,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     
     // Show trailing button if: has text OR showPlaceholderIcon is enabled
     final showTrailingButton = _hasText || widget.showPlaceholderIcon;
-
+    
     return AnimatedContainer(
       duration: const Duration(milliseconds: 100),
       height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
@@ -197,8 +197,8 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
         tint: widget.tint,
         cornerRadius: effectiveCornerRadius,
         child: Row(
-          crossAxisAlignment: _currentHeight > widget.minHeight
-              ? CrossAxisAlignment.end
+          crossAxisAlignment: _currentHeight > widget.minHeight 
+              ? CrossAxisAlignment.end 
               : CrossAxisAlignment.center,
           children: [
             if (widget.leading != null) ...[
@@ -254,15 +254,15 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                     // Send button when there's text
                     ? CNButton.icon(
                         key: const ValueKey('send_button'),
-                        icon: CNSymbol(
-                          effectiveIconName,
+                  icon: CNSymbol(
+                    effectiveIconName,
                           size: 18,
-                          color: effectiveIconInnerColor,
-                        ),
-                        size: 32,
-                        style: CNButtonStyle.prominentGlass,
-                        tint: effectiveTrailingColor,
-                        onPressed: _handleSubmit,
+                    color: effectiveIconInnerColor,
+                  ),
+                  size: 32,
+                  style: CNButtonStyle.prominentGlass,
+                  tint: effectiveTrailingColor,
+                  onPressed: _handleSubmit,
                       )
                     // Placeholder icon when empty
                     : CNButton.icon(
@@ -276,7 +276,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                         style: CNButtonStyle.glass,
                         tint: widget.tint,
                         onPressed: widget.onPlaceholderIconPressed,
-                      ),
+                ),
               ),
             ],
           ],

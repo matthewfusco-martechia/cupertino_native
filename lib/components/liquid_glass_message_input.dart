@@ -290,17 +290,17 @@ class _TrailingActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     // Show send button if there's text
     if (hasText) {
-      return CNButton.icon(
-        icon: CNSymbol(
-          sendIconName,
-          size: 16,
-          color: sendIconColor,
-        ),
-        size: buttonSize,
-        style: CNButtonStyle.prominentGlass,
-        tint: sendTint,
-        onPressed: onSendPressed,
-      );
+    return CNButton.icon(
+      icon: CNSymbol(
+        sendIconName,
+        size: 16,
+        color: sendIconColor,
+      ),
+      size: buttonSize,
+      style: CNButtonStyle.prominentGlass,
+      tint: sendTint,
+      onPressed: onSendPressed,
+    );
     }
 
     // Show mic button (user can use iOS keyboard dictation)

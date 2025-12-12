@@ -194,7 +194,7 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
             placeholder: widget.placeholder,
             minHeight: widget.height,
             width: widget.width,
-            maxLines: widget.maxLines,
+                      maxLines: widget.maxLines,
             cornerRadius: widget.cornerRadius,
             trailingIconColor: effectiveTrailingColor,
             trailingIconInnerColor: effectiveIconInnerColor,
@@ -206,12 +206,12 @@ class _LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                 ? () => widget.onPlaceholderIconPressed!()
                 : null,
             onSubmitted: _handleSubmit,
-            onChanged: (text) {
-              widget.onTextChanged?.call(text);
-            },
-            onFocusChanged: (focused) {
-              widget.onFocusChanged?.call(focused);
-            },
+                      onChanged: (text) {
+                        widget.onTextChanged?.call(text);
+                      },
+                      onFocusChanged: (focused) {
+                        widget.onFocusChanged?.call(focused);
+                      },
           ),
         ),
       ),
