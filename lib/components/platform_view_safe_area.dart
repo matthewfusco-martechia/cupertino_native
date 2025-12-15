@@ -3,15 +3,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show showModalBottomSheet, showDialog;
 
-/// A widget that ensures its child renders correctly above platform views.
+/// A widget that creates an opaque compositing barrier above platform views.
 ///
 /// When Flutter platform views (native iOS/macOS views) are present, overlays
-/// like bottom sheets, modals, and dialogs can have compositing issues where
-/// text fails to render. This widget forces Flutter to create a separate
-/// compositing layer that properly renders above platform views.
+/// like bottom sheets can have compositing issues where text fails to render.
+/// This widget forces Flutter to create a separate compositing layer using
+/// multiple aggressive techniques.
 ///
-/// Use this widget to wrap any overlay content that needs to appear above
-/// native platform views:
+/// Use this widget to wrap bottom sheet or dialog content:
 ///
 /// ```dart
 /// showModalBottomSheet(
@@ -33,56 +32,48 @@ class PlatformViewSafeArea extends StatelessWidget {
   final Widget child;
 
   /// Whether the safe area compositing is enabled.
-  /// Set to false to disable the compositing layer (useful for debugging).
   final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    // Only apply on iOS where platform view compositing is an issue
     if (!enabled ||
         !(defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.macOS)) {
       return child;
     }
 
-    // Force a separate compositing layer using multiple techniques:
-    // 1. RepaintBoundary - creates a separate layer for caching
-    // 2. Transform.identity - forces the layer to be composited separately
-    // 3. The combination ensures Flutter creates a new surface above platform views
+    // AGGRESSIVE COMPOSITING: Use Opacity trick to force separate layer
+    // Opacity < 1.0 forces Flutter to create a separate compositing layer
+    // 0.9999 is visually imperceptible but forces layer separation
     return RepaintBoundary(
-      child: Transform(
-        transform: Matrix4.identity(),
-        // transformHitTests: false ensures touch events pass through correctly
-        transformHitTests: false,
+      child: Opacity(
+        opacity: 0.9999,
         child: child,
       ),
     );
   }
 }
 
-/// A widget that wraps overlay content to ensure proper rendering above platform views.
+/// A more aggressive barrier that ensures content renders above platform views.
 ///
-/// This is a more aggressive version of [PlatformViewSafeArea] that uses
-/// additional techniques to force proper compositing. Use this if
-/// [PlatformViewSafeArea] alone doesn't resolve the rendering issues.
-class PlatformViewOverlay extends StatelessWidget {
-  /// Creates a platform view overlay wrapper.
-  const PlatformViewOverlay({
+/// Use this when [PlatformViewSafeArea] alone doesn't work. This creates
+/// multiple compositing boundaries to ensure proper z-ordering.
+class PlatformViewBarrier extends StatelessWidget {
+  /// Creates a platform view barrier.
+  const PlatformViewBarrier({
     super.key,
     required this.child,
     this.backgroundColor,
   });
 
-  /// The child widget to render safely above platform views.
+  /// The child widget.
   final Widget child;
 
-  /// Optional background color. If provided, creates an additional
-  /// compositing boundary.
+  /// Optional background color for the barrier.
   final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    // Only apply on iOS/macOS where platform view compositing is an issue
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
       return child;
@@ -90,7 +81,7 @@ class PlatformViewOverlay extends StatelessWidget {
 
     Widget content = child;
 
-    // Wrap in ColoredBox if background is provided - this creates a paint boundary
+    // Add background if specified - creates an opaque paint layer
     if (backgroundColor != null) {
       content = ColoredBox(
         color: backgroundColor!,
@@ -98,19 +89,56 @@ class PlatformViewOverlay extends StatelessWidget {
       );
     }
 
-    // Use a CompositedTransformFollower-like approach with Transform
-    // This forces Flutter to composite the content on a separate layer
+    // Use multiple techniques to absolutely force layer separation:
+    // 1. Outer RepaintBoundary - creates raster cache boundary
+    // 2. Opacity < 1.0 - forces separate compositing layer
+    // 3. Inner RepaintBoundary - additional isolation
     return RepaintBoundary(
-      child: Builder(
-        builder: (context) {
-          return Transform(
-            transform: Matrix4.identity(),
-            transformHitTests: false,
-            child: RepaintBoundary(
-              child: content,
-            ),
-          );
-        },
+      child: Opacity(
+        opacity: 0.9999,
+        child: RepaintBoundary(
+          child: content,
+        ),
+      ),
+    );
+  }
+}
+
+/// Widget that wraps entire bottom sheet content to fix platform view compositing.
+///
+/// This wrapper uses the most aggressive compositing techniques available
+/// to ensure bottom sheet content (especially text/titles) renders correctly
+/// when platform views are present in the background.
+class BottomSheetPlatformFix extends StatelessWidget {
+  /// Creates a bottom sheet platform fix wrapper.
+  const BottomSheetPlatformFix({
+    super.key,
+    required this.child,
+  });
+
+  /// The bottom sheet content.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!(defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS)) {
+      return child;
+    }
+
+    // For bottom sheets specifically, we need to ensure the ENTIRE sheet
+    // including the drag handle and title bar is on its own layer.
+    //
+    // We use:
+    // 1. RepaintBoundary - isolates painting
+    // 2. Opacity(0.9999) - forces Flutter to create a new compositing surface
+    // 3. ClipRect - creates a clip layer that further isolates compositing
+    return RepaintBoundary(
+      child: ClipRect(
+        child: Opacity(
+          opacity: 0.9999,
+          child: child,
+        ),
       ),
     );
   }
@@ -120,8 +148,8 @@ class PlatformViewOverlay extends StatelessWidget {
 extension PlatformViewSafeOverlays on BuildContext {
   /// Shows a modal bottom sheet that renders correctly above platform views.
   ///
-  /// This is a wrapper around [showModalBottomSheet] that ensures the sheet
-  /// content renders properly when native platform views are present.
+  /// This wrapper ensures the sheet content is composited on a separate layer,
+  /// fixing text rendering issues when native platform views are present.
   Future<T?> showPlatformSafeBottomSheet<T>({
     required WidgetBuilder builder,
     Color? backgroundColor,
@@ -142,7 +170,7 @@ extension PlatformViewSafeOverlays on BuildContext {
   }) {
     return showModalBottomSheet<T>(
       context: this,
-      builder: (context) => PlatformViewSafeArea(
+      builder: (context) => BottomSheetPlatformFix(
         child: builder(context),
       ),
       backgroundColor: backgroundColor,
@@ -175,7 +203,7 @@ extension PlatformViewSafeOverlays on BuildContext {
   }) {
     return showCupertinoModalPopup<T>(
       context: this,
-      builder: (context) => PlatformViewSafeArea(
+      builder: (context) => BottomSheetPlatformFix(
         child: builder(context),
       ),
       filter: filter,
@@ -201,7 +229,7 @@ extension PlatformViewSafeOverlays on BuildContext {
   }) {
     return showDialog<T>(
       context: this,
-      builder: (context) => PlatformViewSafeArea(
+      builder: (context) => PlatformViewBarrier(
         child: builder(context),
       ),
       barrierDismissible: barrierDismissible,

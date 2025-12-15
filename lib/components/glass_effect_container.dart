@@ -106,9 +106,9 @@ class CNGlassEffectContainer extends StatelessWidget {
 /// Internal widget that forces Flutter content to render on a separate
 /// compositing layer above platform views.
 ///
-/// This uses multiple techniques to ensure proper layer separation:
+/// This uses multiple aggressive techniques to ensure proper layer separation:
 /// 1. RepaintBoundary - creates a caching layer
-/// 2. Transform.identity - forces a compositing layer
+/// 2. Opacity(0.9999) - forces Flutter to create a separate compositing surface
 /// 3. ClipRRect - ensures content is clipped to bounds
 class _PlatformViewContentLayer extends StatelessWidget {
   const _PlatformViewContentLayer({
@@ -130,12 +130,12 @@ class _PlatformViewContentLayer extends StatelessWidget {
       );
     }
 
-    // Force a separate compositing layer using Transform
-    // This ensures Flutter renders this content ABOVE the platform view
+    // AGGRESSIVE COMPOSITING: Use Opacity trick to force separate layer
+    // Opacity < 1.0 forces Flutter to create a separate compositing surface
+    // This ensures Flutter renders content ABOVE the platform view
     return RepaintBoundary(
-      child: Transform(
-        transform: Matrix4.identity(),
-        transformHitTests: false,
+      child: Opacity(
+        opacity: 0.9999,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(cornerRadius),
           child: child,
