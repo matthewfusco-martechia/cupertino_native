@@ -51,7 +51,9 @@ class CupertinoTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelega
 
     super.init()
 
-    container.backgroundColor = .clear
+    // CRITICAL: Configure container for proper Flutter overlay compositing
+    PlatformViewLayerConfiguration.configureForFlutterCompositing(container, isTransparent: true)
+    PlatformViewLayerConfiguration.configureInteractiveView(container)
     if #available(iOS 13.0, *) { container.overrideUserInterfaceStyle = isDark ? .dark : .light }
 
     let appearance: UITabBarAppearance? = {

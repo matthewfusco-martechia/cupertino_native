@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 
@@ -165,6 +166,7 @@ class _CNButtonState extends State<CNButton> {
             creationParams: creationParams,
             creationParamsCodec: const StandardMessageCodec(),
             onPlatformViewCreated: _onCreated,
+            hitTestBehavior: PlatformViewHitTestBehavior.opaque,
             gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
               // Forward taps to native; let Flutter keep drags for scrolling.
               Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
@@ -180,7 +182,10 @@ class _CNButtonState extends State<CNButton> {
             },
           );
 
-    return LayoutBuilder(
+    // Wrap in RepaintBoundary to create a separate compositing layer
+    // This prevents rendering issues when platform views are stacked with overlays
+    return RepaintBoundary(
+      child: LayoutBuilder(
       builder: (context, constraints) {
         final hasBoundedWidth = constraints.hasBoundedWidth;
         final preferIntrinsic = widget.shrinkWrap || !hasBoundedWidth;
@@ -219,6 +224,7 @@ class _CNButtonState extends State<CNButton> {
           ),
         );
       },
+      ),
     );
   }
 

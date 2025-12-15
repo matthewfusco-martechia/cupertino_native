@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 
@@ -229,6 +230,7 @@ class CNInputState extends State<CNInput> {
             creationParams: creationParams,
             creationParamsCodec: const StandardMessageCodec(),
             onPlatformViewCreated: _onCreated,
+            hitTestBehavior: PlatformViewHitTestBehavior.opaque,
             gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
               Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
             },
@@ -243,11 +245,13 @@ class CNInputState extends State<CNInput> {
             },
           );
 
-    // Use a simple SizedBox - no animation to avoid timing issues
-    // The native UITextView handles its own scrolling
-    return SizedBox(
-      height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
-      child: platformView,
+    // Wrap in RepaintBoundary to create a separate compositing layer
+    // This prevents rendering issues when platform views are stacked with overlays
+    return RepaintBoundary(
+      child: SizedBox(
+        height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+        child: platformView,
+      ),
     );
   }
 

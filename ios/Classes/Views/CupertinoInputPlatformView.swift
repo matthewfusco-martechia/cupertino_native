@@ -66,8 +66,13 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     
     super.init()
     
-    container.backgroundColor = .clear
+    // CRITICAL: Configure container for proper Flutter overlay compositing
+    // This prevents text rendering issues when platform views stack with overlays
+    PlatformViewLayerConfiguration.configureForFlutterCompositing(container, isTransparent: true)
     container.clipsToBounds = true
+    
+    // Configure container as interactive since it contains a text field
+    PlatformViewLayerConfiguration.configureInteractiveView(container)
     
     // Configure text view - SIMPLE SETUP
     textView.translatesAutoresizingMaskIntoConstraints = false
@@ -84,6 +89,11 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     textView.isScrollEnabled = true
     textView.showsVerticalScrollIndicator = false
     textView.alwaysBounceVertical = false
+    
+    // CRITICAL: Configure text view for proper Flutter overlay compositing
+    // This prevents text from disappearing when overlays are stacked
+    PlatformViewLayerConfiguration.configureInteractiveView(textView)
+    textView.layer.allowsGroupOpacity = true
     
     // Apply colors
     if let tc = textColor {

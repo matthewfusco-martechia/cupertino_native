@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../channel/params.dart';
@@ -104,6 +105,7 @@ class _CNIconState extends State<CNIcon> {
             creationParamsCodec: const StandardMessageCodec(),
             creationParams: creationParams,
             onPlatformViewCreated: _onPlatformViewCreated,
+            hitTestBehavior: PlatformViewHitTestBehavior.transparent,
           )
         : AppKitView(
             viewType: viewType,
@@ -113,10 +115,14 @@ class _CNIconState extends State<CNIcon> {
           );
 
     // Ensure the platform view always has finite constraints
+    // Wrap in RepaintBoundary to create a separate compositing layer
+    // This prevents rendering issues when platform views are stacked with overlays
     final fallbackSize = widget.size ?? widget.symbol.size;
     final h = widget.height ?? fallbackSize;
     final w = fallbackSize;
-    return SizedBox(width: w, height: h, child: platformView);
+    return RepaintBoundary(
+      child: SizedBox(width: w, height: h, child: platformView),
+    );
   }
 
   void _onPlatformViewCreated(int id) {

@@ -13,7 +13,8 @@ class CupertinoGlassEffectContainerPlatformView: NSObject, FlutterPlatformView {
 
   init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
     self.channel = FlutterMethodChannel(name: "CupertinoNativeGlassEffectContainer_\(viewId)", binaryMessenger: messenger)
-    self.container = UIView(frame: frame)
+    // Use the compositing-aware container creation
+    self.container = PlatformViewLayerConfiguration.createCompositingContainer(frame: frame)
     
     var tint: UIColor? = nil
     var interactive: Bool = false
@@ -63,21 +64,26 @@ class CupertinoGlassEffectContainerPlatformView: NSObject, FlutterPlatformView {
     self.tintColor = tint
     self.isInteractive = interactive
     
-    // Set up container
-    container.backgroundColor = .clear
+    // Set up container with Flutter compositing configuration
+    // Note: container is already configured via createCompositingContainer
     if #available(iOS 13.0, *) {
       container.overrideUserInterfaceStyle = isDark ? .dark : .light
     }
     
-    // Set up visual effect view
+    // Set up visual effect view with Flutter compositing configuration
     visualEffectView.translatesAutoresizingMaskIntoConstraints = false
-    visualEffectView.clipsToBounds = true
-    visualEffectView.layer.cornerRadius = cornerRadius
+    
+    // CRITICAL: Configure visual effect view for proper Flutter overlay compositing
+    // This prevents the UIVisualEffectView from punching through Flutter text layers
+    visualEffectView.configureForFlutterVisualEffects(cornerRadius: cornerRadius)
     
     // Add tint color if specified
     if let tint = tint {
       contentView.backgroundColor = tint.withAlphaComponent(0.1)
     }
+    
+    // Configure content view for compositing
+    contentView.configureForFlutterCompositing(isTransparent: true)
     
     // Build the view hierarchy
     container.addSubview(visualEffectView)
@@ -126,6 +132,8 @@ class CupertinoGlassEffectContainerPlatformView: NSObject, FlutterPlatformView {
             } else {
               self.visualEffectView.effect = UIBlurEffect(style: .systemMaterial)
             }
+            // Reapply compositing configuration after effect change
+            self.visualEffectView.configureForFlutterVisualEffects(cornerRadius: self.visualEffectView.layer.cornerRadius)
           }
           result(nil)
         } else {
@@ -155,7 +163,8 @@ class CupertinoGlassEffectContainerPlatformView: NSObject, FlutterPlatformView {
         if let args = call.arguments as? [String: Any] {
           if let radiusNumber = args["cornerRadius"] as? NSNumber {
             let radius = CGFloat(truncating: radiusNumber)
-            self.visualEffectView.layer.cornerRadius = radius
+            // Re-apply visual effects configuration with new corner radius
+            self.visualEffectView.configureForFlutterVisualEffects(cornerRadius: radius)
           }
           result(nil)
         } else {
@@ -193,6 +202,8 @@ class CupertinoGlassEffectContainerPlatformView: NSObject, FlutterPlatformView {
             glassEffect.isInteractive = interactive
             self.visualEffectView.effect = glassEffect
           }
+          // Reapply compositing configuration after effect change
+          self.visualEffectView.configureForFlutterVisualEffects(cornerRadius: self.visualEffectView.layer.cornerRadius)
           result(nil)
         } else {
           result(FlutterError(code: "bad_args", message: "Missing interactive", details: nil))

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 /// Enum for glass effect styles.
@@ -87,7 +88,11 @@ class CNGlassEffectContainer extends StatelessWidget {
             height: double.infinity,
             child: Container(), // Empty container
           ),
-          Positioned.fill(child: child),
+          // Wrap child in RepaintBoundary to create a separate compositing layer
+          // This prevents rendering issues when platform views are stacked
+          Positioned.fill(
+            child: RepaintBoundary(child: child),
+          ),
         ],
       ),
     );
@@ -232,11 +237,16 @@ class _CNGlassEffectContainerState
 
     Widget platformView;
     if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // Use transparent hit test behavior to allow Flutter gestures to pass through
+      // while keeping the native view's visual effect layer properly composited
       platformView = UiKitView(
         viewType: viewType,
         creationParams: creationParams,
         creationParamsCodec: const StandardMessageCodec(),
         onPlatformViewCreated: _onPlatformViewCreated,
+        // CRITICAL: Use transparent to avoid blocking Flutter's overlay compositing
+        // This allows Flutter overlays (bottom sheets, modals) to render text properly
+        hitTestBehavior: PlatformViewHitTestBehavior.transparent,
       );
     } else {
       platformView = AppKitView(
@@ -247,9 +257,13 @@ class _CNGlassEffectContainerState
       );
     }
 
-    Widget finalView = ClipRRect(
-      borderRadius: BorderRadius.circular(widget.cornerRadius),
-      child: platformView,
+    // Wrap in RepaintBoundary to create a separate compositing layer
+    // This helps prevent rendering issues when platform views are stacked
+    Widget finalView = RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(widget.cornerRadius),
+        child: platformView,
+      ),
     );
 
     if (widget.width != null || widget.height != null) {

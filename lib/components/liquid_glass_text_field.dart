@@ -186,11 +186,14 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
     // Show trailing button if: has text OR showPlaceholderIcon is enabled
     final showTrailingButton = _hasText || widget.showPlaceholderIcon;
     
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 100),
-      height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
-      width: widget.width ?? double.infinity,
-      child: CNGlassEffectContainer(
+    // CRITICAL: Wrap in RepaintBoundary to isolate the platform view compositing
+    // This prevents rendering issues when the text field is used in overlays
+    return RepaintBoundary(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+        width: widget.width ?? double.infinity,
+        child: CNGlassEffectContainer(
         height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
         width: widget.width ?? double.infinity,
         glassStyle: widget.glassStyle,
@@ -281,6 +284,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
             ],
           ],
         ),
+      ),
       ),
     );
   }
