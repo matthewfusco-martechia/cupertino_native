@@ -78,6 +78,7 @@ class CNGlassEffectContainer extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          // Platform view layer - render the native glass effect
           CNGlassEffectContainerInternal(
             glassStyle: glassStyle,
             tint: tint,
@@ -88,12 +89,57 @@ class CNGlassEffectContainer extends StatelessWidget {
             height: double.infinity,
             child: Container(), // Empty container
           ),
-          // Wrap child in RepaintBoundary to create a separate compositing layer
-          // This prevents rendering issues when platform views are stacked
+          // Flutter content layer - MUST be on a separate compositing layer
+          // to render correctly above the platform view
           Positioned.fill(
-            child: RepaintBoundary(child: child),
+            child: _PlatformViewContentLayer(
+              cornerRadius: cornerRadius,
+              child: child,
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Internal widget that forces Flutter content to render on a separate
+/// compositing layer above platform views.
+///
+/// This uses multiple techniques to ensure proper layer separation:
+/// 1. RepaintBoundary - creates a caching layer
+/// 2. Transform.identity - forces a compositing layer
+/// 3. ClipRRect - ensures content is clipped to bounds
+class _PlatformViewContentLayer extends StatelessWidget {
+  const _PlatformViewContentLayer({
+    required this.child,
+    this.cornerRadius = 0.0,
+  });
+
+  final Widget child;
+  final double cornerRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    // Only apply compositing fixes on iOS/macOS
+    if (!(defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(cornerRadius),
+        child: child,
+      );
+    }
+
+    // Force a separate compositing layer using Transform
+    // This ensures Flutter renders this content ABOVE the platform view
+    return RepaintBoundary(
+      child: Transform(
+        transform: Matrix4.identity(),
+        transformHitTests: false,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(cornerRadius),
+          child: child,
+        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cupertino_native/cupertino_native.dart';
 
@@ -70,133 +71,167 @@ class _LiquidGlassInputDialogState extends State<LiquidGlassInputDialog> {
         ? const Color(0xFF3A3A3C)
         : const Color(0xFFE8E8ED);
 
-    return Align(
-      alignment: const Alignment(0, -0.4), // Position dialog higher above keyboard
-      child: Container(
-        width: 300,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        child: Stack(
-          children: [
-            // Liquid Glass Background - only the container uses glass effect
-            Positioned.fill(
-              child: CNGlassEffectContainer(
-                glassStyle: CNGlassStyle.regular,
-                cornerRadius: 20,
-                interactive: false,
-                child: const SizedBox(),
+    // CRITICAL: Wrap entire dialog in PlatformViewSafeArea to ensure
+    // text renders correctly above platform views in overlay context
+    return PlatformViewSafeArea(
+      child: Align(
+        alignment: const Alignment(0, -0.4), // Position dialog higher above keyboard
+        child: Container(
+          width: 300,
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          child: Stack(
+            children: [
+              // Liquid Glass Background - only the container uses glass effect
+              Positioned.fill(
+                child: CNGlassEffectContainer(
+                  glassStyle: CNGlassStyle.regular,
+                  cornerRadius: 20,
+                  interactive: false,
+                  child: const SizedBox(),
+                ),
               ),
-            ),
-            // Content - native Cupertino widgets
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Title
-                  Text(
-                    widget.title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                      decoration: TextDecoration.none,
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                  if (widget.message != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.message!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: secondaryTextColor,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  // Native Cupertino Text Field
-                  CupertinoTextField(
-                    controller: _controller,
-                    placeholder: widget.placeholder,
-                    placeholderStyle: TextStyle(
-                      color: placeholderColor,
-                      fontSize: 17,
-                    ),
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 17,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: inputBackgroundColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    cursorColor: CupertinoColors.activeBlue,
-                    autofocus: true,
-                  ),
-                  const SizedBox(height: 16),
-                  // Native Cupertino Action Buttons
-                  Row(
+              // Content - wrapped in compositing layer to render above platform view
+              _DialogContentLayer(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Cancel Button
-                      Expanded(
-                        child: CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () => widget.onCancel?.call(),
-                          child: Container(
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: buttonBackgroundColor,
-                              borderRadius: BorderRadius.circular(25),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              widget.cancelButtonText,
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
+                      // Title
+                      Text(
+                        widget.title,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                          decoration: TextDecoration.none,
+                          letterSpacing: -0.4,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      // Confirm Button
-                      Expanded(
-                        child: CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () => widget.onConfirm?.call(_controller.text),
-                          child: Container(
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: buttonBackgroundColor,
-                              borderRadius: BorderRadius.circular(25),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              widget.confirmButtonText,
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w400,
+                      if (widget.message != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.message!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: secondaryTextColor,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      // Native Cupertino Text Field
+                      CupertinoTextField(
+                        controller: _controller,
+                        placeholder: widget.placeholder,
+                        placeholderStyle: TextStyle(
+                          color: placeholderColor,
+                          fontSize: 17,
+                        ),
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 17,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: inputBackgroundColor,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        cursorColor: CupertinoColors.activeBlue,
+                        autofocus: true,
+                      ),
+                      const SizedBox(height: 16),
+                      // Native Cupertino Action Buttons
+                      Row(
+                        children: [
+                          // Cancel Button
+                          Expanded(
+                            child: CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: () => widget.onCancel?.call(),
+                              child: Container(
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: buttonBackgroundColor,
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  widget.cancelButtonText,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          // Confirm Button
+                          Expanded(
+                            child: CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: () => widget.onConfirm?.call(_controller.text),
+                              child: Container(
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: buttonBackgroundColor,
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  widget.confirmButtonText,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+/// Internal widget that forces dialog content to render on a separate
+/// compositing layer above platform views.
+class _DialogContentLayer extends StatelessWidget {
+  const _DialogContentLayer({
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // Only apply compositing fixes on iOS/macOS
+    if (!(defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS)) {
+      return child;
+    }
+
+    // Force a separate compositing layer using multiple techniques
+    // This ensures Flutter renders this content ABOVE the platform view
+    return RepaintBoundary(
+      child: Transform(
+        transform: Matrix4.identity(),
+        transformHitTests: false,
+        child: child,
+      ),
+    );
+  }
+}
