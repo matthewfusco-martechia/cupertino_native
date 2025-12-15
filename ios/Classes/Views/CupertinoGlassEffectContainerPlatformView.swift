@@ -63,9 +63,8 @@ class CupertinoGlassEffectContainerPlatformView: NSObject, FlutterPlatformView {
     self.tintColor = tint
     self.isInteractive = interactive
     
-    // CRITICAL: Configure container for proper Flutter overlay compositing
-    // This sets negative zPosition to prevent punching through Flutter content
-    container.configureAsFlutterPlatformViewContainer()
+    // Set up container
+    container.backgroundColor = .clear
     if #available(iOS 13.0, *) {
       container.overrideUserInterfaceStyle = isDark ? .dark : .light
     }
