@@ -33,8 +33,7 @@ class CupertinoIconPlatformView: NSObject, FlutterPlatformView {
 
     super.init()
 
-    // CRITICAL: Configure container for proper Flutter overlay compositing
-    PlatformViewLayerConfiguration.configureForFlutterCompositing(container, isTransparent: true)
+    container.backgroundColor = .clear
     if #available(iOS 13.0, *) {
       container.overrideUserInterfaceStyle = isDark ? .dark : .light
     }

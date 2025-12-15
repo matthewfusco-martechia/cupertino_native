@@ -13,8 +13,7 @@ class CupertinoGlassEffectContainerPlatformView: NSObject, FlutterPlatformView {
 
   init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
     self.channel = FlutterMethodChannel(name: "CupertinoNativeGlassEffectContainer_\(viewId)", binaryMessenger: messenger)
-    // Use the compositing-aware container creation
-    self.container = PlatformViewLayerConfiguration.createCompositingContainer(frame: frame)
+    self.container = UIView(frame: frame)
     
     var tint: UIColor? = nil
     var interactive: Bool = false
@@ -64,26 +63,22 @@ class CupertinoGlassEffectContainerPlatformView: NSObject, FlutterPlatformView {
     self.tintColor = tint
     self.isInteractive = interactive
     
-    // Set up container with Flutter compositing configuration
-    // Note: container is already configured via createCompositingContainer
+    // Set up container
+    container.backgroundColor = .clear
     if #available(iOS 13.0, *) {
       container.overrideUserInterfaceStyle = isDark ? .dark : .light
     }
     
-    // Set up visual effect view with Flutter compositing configuration
+    // Set up visual effect view
     visualEffectView.translatesAutoresizingMaskIntoConstraints = false
     
-    // CRITICAL: Configure visual effect view for proper Flutter overlay compositing
-    // This prevents the UIVisualEffectView from punching through Flutter text layers
+    // Configure visual effect view for proper Flutter overlay compositing
     visualEffectView.configureForFlutterVisualEffects(cornerRadius: cornerRadius)
     
     // Add tint color if specified
     if let tint = tint {
       contentView.backgroundColor = tint.withAlphaComponent(0.1)
     }
-    
-    // Configure content view for compositing
-    contentView.configureForFlutterCompositing(isTransparent: true)
     
     // Build the view hierarchy
     container.addSubview(visualEffectView)

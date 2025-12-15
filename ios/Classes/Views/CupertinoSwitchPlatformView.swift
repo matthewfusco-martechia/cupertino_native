@@ -33,10 +33,6 @@ class CupertinoSwitchPlatformView: NSObject, FlutterPlatformView {
       self.hostingController.overrideUserInterfaceStyle = isDark ? .dark : .light
     }
     super.init()
-    
-    // CRITICAL: Configure hosting controller view for proper Flutter overlay compositing
-    PlatformViewLayerConfiguration.configureForFlutterCompositing(hostingController.view, isTransparent: true)
-    PlatformViewLayerConfiguration.configureInteractiveView(hostingController.view)
 
     if let tint = initialTint {
       model.tintColor = Color(tint)

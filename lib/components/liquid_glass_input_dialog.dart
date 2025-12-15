@@ -70,29 +70,22 @@ class _LiquidGlassInputDialogState extends State<LiquidGlassInputDialog> {
         ? const Color(0xFF3A3A3C)
         : const Color(0xFFE8E8ED);
 
-    // CRITICAL: Wrap the entire dialog in RepaintBoundary to create a separate
-    // compositing layer. This prevents native platform views from interfering
-    // with Flutter's text rendering in stacked overlay scenarios.
-    return RepaintBoundary(
-      child: Align(
-        alignment: const Alignment(0, -0.4), // Position dialog higher above keyboard
-        child: Container(
-          width: 300,
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          child: Stack(
-            children: [
-              // Liquid Glass Background - only the container uses glass effect
-              // The native view is isolated in its own compositing layer
-              Positioned.fill(
-                child: RepaintBoundary(
-                  child: CNGlassEffectContainer(
-                    glassStyle: CNGlassStyle.regular,
-                    cornerRadius: 20,
-                    interactive: false,
-                    child: const SizedBox(),
-                  ),
-                ),
+    return Align(
+      alignment: const Alignment(0, -0.4), // Position dialog higher above keyboard
+      child: Container(
+        width: 300,
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        child: Stack(
+          children: [
+            // Liquid Glass Background - only the container uses glass effect
+            Positioned.fill(
+              child: CNGlassEffectContainer(
+                glassStyle: CNGlassStyle.regular,
+                cornerRadius: 20,
+                interactive: false,
+                child: const SizedBox(),
               ),
+            ),
             // Content - native Cupertino widgets
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
@@ -202,7 +195,6 @@ class _LiquidGlassInputDialogState extends State<LiquidGlassInputDialog> {
             ),
           ],
         ),
-      ),
       ),
     );
   }

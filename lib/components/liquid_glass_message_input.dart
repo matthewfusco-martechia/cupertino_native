@@ -152,13 +152,10 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
   Widget build(BuildContext context) {
     final targetHeight = _computeHeight().clamp(120.0, 400.0);
 
-    // CRITICAL: Wrap in RepaintBoundary to isolate platform view compositing
-    // This prevents rendering issues when used in overlays with stacked sheets
-    return RepaintBoundary(
-      child: SizedBox(
-        height: targetHeight,
-        width: double.infinity,
-        child: CNGlassEffectContainer(
+    return SizedBox(
+      height: targetHeight,
+      width: double.infinity,
+      child: CNGlassEffectContainer(
         glassStyle: CNGlassStyle.regular,
         cornerRadius: 22.0,
         tint: const Color(0xFF0D0D0F).withValues(alpha: 0.78),
@@ -258,7 +255,6 @@ class _LiquidGlassMessageInputState extends State<LiquidGlassMessageInput> {
             ],
           ),
         ),
-      ),
       ),
     );
   }
