@@ -8,7 +8,7 @@ import 'package:flutter/material.dart' show showModalBottomSheet, showDialog;
 /// When Flutter platform views (native iOS/macOS views) are present, overlays
 /// like bottom sheets can have compositing issues where text fails to render.
 /// This widget forces Flutter to create a separate compositing layer using
-/// multiple aggressive techniques.
+/// ImageFiltered, which creates the strongest possible compositing boundary.
 ///
 /// Use this widget to wrap bottom sheet or dialog content:
 ///
@@ -42,14 +42,13 @@ class PlatformViewSafeArea extends StatelessWidget {
       return child;
     }
 
-    // AGGRESSIVE COMPOSITING: Use Opacity trick to force separate layer
-    // Opacity < 1.0 forces Flutter to create a separate compositing layer
-    // 0.9999 is visually imperceptible but forces layer separation
-    return RepaintBoundary(
-      child: Opacity(
-        opacity: 0.9999,
-        child: child,
-      ),
+    // STRONGEST COMPOSITING: ImageFiltered with identity filter
+    // ImageFiltered forces Flutter to render content to a separate texture
+    // Using blur(sigmaX: 0, sigmaY: 0) is effectively a no-op visually
+    // but creates the strongest possible compositing boundary
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+      child: child,
     );
   }
 }
@@ -89,17 +88,10 @@ class PlatformViewBarrier extends StatelessWidget {
       );
     }
 
-    // Use multiple techniques to absolutely force layer separation:
-    // 1. Outer RepaintBoundary - creates raster cache boundary
-    // 2. Opacity < 1.0 - forces separate compositing layer
-    // 3. Inner RepaintBoundary - additional isolation
-    return RepaintBoundary(
-      child: Opacity(
-        opacity: 0.9999,
-        child: RepaintBoundary(
-          child: content,
-        ),
-      ),
+    // Use ImageFiltered to force the strongest compositing boundary
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+      child: content,
     );
   }
 }
@@ -126,20 +118,13 @@ class BottomSheetPlatformFix extends StatelessWidget {
       return child;
     }
 
-    // For bottom sheets specifically, we need to ensure the ENTIRE sheet
-    // including the drag handle and title bar is on its own layer.
-    //
-    // We use:
-    // 1. RepaintBoundary - isolates painting
-    // 2. Opacity(0.9999) - forces Flutter to create a new compositing surface
-    // 3. ClipRect - creates a clip layer that further isolates compositing
-    return RepaintBoundary(
-      child: ClipRect(
-        child: Opacity(
-          opacity: 0.9999,
-          child: child,
-        ),
-      ),
+    // For bottom sheets, use ImageFiltered which creates the strongest
+    // compositing boundary. This forces Flutter to render the entire
+    // sheet content (including title bar) to a separate texture that
+    // will be properly composited above platform views.
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+      child: child,
     );
   }
 }

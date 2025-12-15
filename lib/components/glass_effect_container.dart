@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/rendering.dart';
@@ -106,10 +107,8 @@ class CNGlassEffectContainer extends StatelessWidget {
 /// Internal widget that forces Flutter content to render on a separate
 /// compositing layer above platform views.
 ///
-/// This uses multiple aggressive techniques to ensure proper layer separation:
-/// 1. RepaintBoundary - creates a caching layer
-/// 2. Opacity(0.9999) - forces Flutter to create a separate compositing surface
-/// 3. ClipRRect - ensures content is clipped to bounds
+/// This uses ImageFiltered with zero blur to create the strongest possible
+/// compositing boundary, ensuring Flutter content renders above platform views.
 class _PlatformViewContentLayer extends StatelessWidget {
   const _PlatformViewContentLayer({
     required this.child,
@@ -130,16 +129,14 @@ class _PlatformViewContentLayer extends StatelessWidget {
       );
     }
 
-    // AGGRESSIVE COMPOSITING: Use Opacity trick to force separate layer
-    // Opacity < 1.0 forces Flutter to create a separate compositing surface
-    // This ensures Flutter renders content ABOVE the platform view
-    return RepaintBoundary(
-      child: Opacity(
-        opacity: 0.9999,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(cornerRadius),
-          child: child,
-        ),
+    // STRONGEST COMPOSITING: ImageFiltered with identity filter
+    // This forces Flutter to render content to a separate texture
+    // which will be properly composited above the platform view
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(cornerRadius),
+      child: ImageFiltered(
+        imageFilter: ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+        child: child,
       ),
     );
   }
