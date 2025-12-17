@@ -416,9 +416,9 @@ class _FFPopupMenuButtonState extends State<FFPopupMenuButton> {
         _setPressed(false);
         _downPosition = null;
       },
-      child: SizedBox(
+      child: Container(
         height: widget.height,
-        width: widget.width,
+        constraints: BoxConstraints(minWidth: widget.width),
         child: platformView,
       ),
     );

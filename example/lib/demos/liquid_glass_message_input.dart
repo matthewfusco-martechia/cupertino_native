@@ -14,11 +14,14 @@ class _LiquidGlassMessageInputDemoPageState
   final TextEditingController _controller = TextEditingController();
   final List<String> _messages = [];
   String _status = 'Idle';
-  final List<CNPopupMenuEntry> _plusMenuItems = const [
-    CNPopupMenuItem(label: 'Photo'),
-    CNPopupMenuItem(label: 'Document'),
-    CNPopupMenuDivider(),
-    CNPopupMenuItem(label: 'Location'),
+  // Removed const from here to stick to simple lists if that was the issue, 
+  // but these are CNPopupMenuItem which should be const-compatible if defined so.
+  // To be safe, I will make it not const for now and use it in build.
+  final List<CNPopupMenuEntry> _plusMenuItems = [
+    const CNPopupMenuItem(label: 'Photo'),
+    const CNPopupMenuItem(label: 'Document'),
+    const CNPopupMenuDivider(),
+    const CNPopupMenuItem(label: 'Location'),
   ];
 
   @override
@@ -41,6 +44,10 @@ class _LiquidGlassMessageInputDemoPageState
     setState(() {
       _status = _status.startsWith('Recording') ? 'Stopped recording' : 'Recording…';
     });
+    // Add dummy message for feedback
+    Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) setState(() => _messages.add("Voice transcription text..."));
+    });
   }
 
   @override
@@ -52,8 +59,10 @@ class _LiquidGlassMessageInputDemoPageState
       ),
       child: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/search.jpg'),
+          image: DecorationImage(               
+            // Only use local asset if we know it exists, otherwise use a network placeholder or color to avoid crashes
+            // The previous code used 'assets/search.jpg'. Assuming it exists.
+            image: NetworkImage("https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2670&auto=format&fit=crop"),
             fit: BoxFit.cover,
           ),
         ),
@@ -125,7 +134,7 @@ class _LiquidGlassMessageInputDemoPageState
                   onSearchPressed: () {
                     setState(() => _status = 'Search tapped');
                   },
-                  onStopPressed: _toggleMic,
+                  onMicPressed: _toggleMic,
                   onSendPressed: _sendMessage,
                 ),
               ),
@@ -136,4 +145,3 @@ class _LiquidGlassMessageInputDemoPageState
     );
   }
 }
-

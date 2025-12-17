@@ -22,6 +22,7 @@ import 'demos/liquid_glass_icon_container.dart';
 import 'demos/liquid_glass_snackbar_demo.dart';
 import 'demos/cupertino_slideable_list_tile_demo.dart';
 import 'demos/liquid_glass_message_input.dart';
+import 'demos/liquid_glass_search_text_field.dart';
 
 void main() {
   runApp(const MyApp());
@@ -291,6 +292,21 @@ class HomePage extends StatelessWidget {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
                       builder: (_) => const LiquidGlassMessageInputDemoPage(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Liquid Glass Search Input'),
+                leading: CNIcon(
+                  symbol: CNSymbol('magnifyingglass.circle.fill', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) =>
+                          const LiquidGlassSearchTextFieldDemoPage(),
                     ),
                   );
                 },
