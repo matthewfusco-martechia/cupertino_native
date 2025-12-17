@@ -76,8 +76,10 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
     textView.isEditable = enabled
     textView.isSelectable = true
     textView.delegate = self
-    // Use consistent padding that centers text properly
-    textView.textContainerInset = UIEdgeInsets(top: 12, left: 4, bottom: 12, right: 4)
+    // Use top: 15 to visually center text in the 50pt fixed-height container
+    // Use bottom: 5 (smaller) to ensure single-line height calculation stays < 50pt
+    // height = 15 + 5 + ~20.3 (text) + 4 (buffer) = ~44.3 < 50
+    textView.textContainerInset = UIEdgeInsets(top: 15, left: 4, bottom: 5, right: 4)
     textView.textContainer.lineFragmentPadding = 0
     
     // KEY: Always enable scrolling for multi-line - this is how iMessage works
@@ -141,10 +143,10 @@ class CupertinoInputPlatformView: NSObject, FlutterPlatformView, UITextViewDeleg
       textView.topAnchor.constraint(equalTo: container.topAnchor),
       textView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
       
-      // Placeholder sits at same position as text (12px top inset to match textContainerInset)
+      // Placeholder sits at same position as text (15px top inset to match textContainerInset)
       placeholderLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 4),
       placeholderLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -4),
-      placeholderLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+      placeholderLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 15),
     ])
     
     setupMethodChannel()
