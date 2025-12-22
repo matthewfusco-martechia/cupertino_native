@@ -23,6 +23,7 @@ import 'demos/liquid_glass_snackbar_demo.dart';
 import 'demos/cupertino_slideable_list_tile_demo.dart';
 import 'demos/liquid_glass_message_input.dart';
 import 'demos/liquid_glass_search_text_field.dart';
+import 'demos/model_tab_bar.dart';
 
 void main() {
   runApp(const MyApp());
@@ -339,6 +340,18 @@ class HomePage extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     CupertinoPageRoute(builder: (_) => const TabBarDemoPage()),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Model Tab Bar'),
+                leading: CNIcon(
+                  symbol: CNSymbol('arrow.down.circle', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(builder: (_) => const ModelTabBarDemoPage()),
                   );
                 },
               ),
