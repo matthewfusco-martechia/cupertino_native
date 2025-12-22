@@ -2,14 +2,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show TabController, TabBarView;
 import 'package:cupertino_native/cupertino_native.dart';
 
-class ModelTabBarDemoPage extends StatefulWidget {
-  const ModelTabBarDemoPage({super.key});
+class LiquidGlassTwoTabBarDemoPage extends StatefulWidget {
+  const LiquidGlassTwoTabBarDemoPage({super.key});
 
   @override
-  State<ModelTabBarDemoPage> createState() => _ModelTabBarDemoPageState();
+  State<LiquidGlassTwoTabBarDemoPage> createState() => _LiquidGlassTwoTabBarDemoPageState();
 }
 
-class _ModelTabBarDemoPageState extends State<ModelTabBarDemoPage>
+class _LiquidGlassTwoTabBarDemoPageState extends State<LiquidGlassTwoTabBarDemoPage>
     with SingleTickerProviderStateMixin {
   late final TabController _controller;
   int _index = 0;
@@ -34,7 +34,7 @@ class _ModelTabBarDemoPageState extends State<ModelTabBarDemoPage>
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
-        middle: Text('Model Tab Bar'),
+        middle: Text('Two Tab Bar'),
       ),
       child: Stack(
         children: [

@@ -1,10 +1,9 @@
 // Automatic FlutterFlow imports
-import '/backend/backend.dart';
 import '/backend/schema/structs/index.dart';
-import '/actions/actions.dart' as action_blocks;
+import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import 'index.dart'; // Imports other custom widgets
+import '/custom_code/widgets/index.dart'; // Imports other custom widgets
 import '/custom_code/actions/index.dart'; // Imports custom actions
 import '/flutter_flow/custom_functions.dart'; // Imports custom functions
 import 'package:flutter/material.dart';
@@ -14,57 +13,41 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:cupertino_native/cupertino_native.dart';
 
-/// A native tab bar for switching between Available Models and Downloaded Models.
+/// A native two-tab bar with liquid glass styling.
 ///
 /// Uses the CNTabBar component for pixel-perfect iOS/macOS tab bar appearance
 /// with swipe gesture support for sliding between tabs.
-class ModelTabBar extends StatefulWidget {
-  const ModelTabBar({
+class LiquidGlassTwoTabBar extends StatefulWidget {
+  const LiquidGlassTwoTabBar({
     super.key,
     this.width,
     this.height,
-    this.initialIndex = 0,
-    this.onTabChanged,
+    required this.initialIndex,
+    required this.onTabChanged,
     this.tintColor,
-    this.availableModelsLabel = 'Available Models',
-    this.downloadedModelsLabel = 'Downloaded Models',
-    this.availableModelsIcon = 'square.grid.2x2',
-    this.downloadedModelsIcon = 'arrow.down.circle.fill',
-    this.shrinkCentered = true,
+    required this.firstTabLabel,
+    required this.secondTabLabel,
+    required this.firstTabIcon,
+    required this.secondTabIcon,
+    required this.shrinkCentered,
   });
 
   final double? width;
   final double? height;
-
-  /// The initial tab index (0 = Available Models, 1 = Downloaded Models).
   final int initialIndex;
-
-  /// Callback when the tab changes, receives the new index.
-  final void Function(int index)? onTabChanged;
-
-  /// Optional tint color for the selected tab.
+  final Future Function(int? index) onTabChanged;
   final Color? tintColor;
-
-  /// Label for the first tab.
-  final String availableModelsLabel;
-
-  /// Label for the second tab.
-  final String downloadedModelsLabel;
-
-  /// SF Symbol name for the first tab icon.
-  final String availableModelsIcon;
-
-  /// SF Symbol name for the second tab icon.
-  final String downloadedModelsIcon;
-
-  /// Whether to shrink and center the tab bar.
+  final String firstTabLabel;
+  final String secondTabLabel;
+  final String firstTabIcon;
+  final String secondTabIcon;
   final bool shrinkCentered;
 
   @override
-  State<ModelTabBar> createState() => _ModelTabBarState();
+  State<LiquidGlassTwoTabBar> createState() => _LiquidGlassTwoTabBarState();
 }
 
-class _ModelTabBarState extends State<ModelTabBar> {
+class _LiquidGlassTwoTabBarState extends State<LiquidGlassTwoTabBar> {
   late int _currentIndex;
 
   @override
@@ -74,7 +57,7 @@ class _ModelTabBarState extends State<ModelTabBar> {
   }
 
   @override
-  void didUpdateWidget(covariant ModelTabBar oldWidget) {
+  void didUpdateWidget(covariant LiquidGlassTwoTabBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Update if initialIndex changes from parent
     if (widget.initialIndex != oldWidget.initialIndex) {
@@ -90,12 +73,12 @@ class _ModelTabBarState extends State<ModelTabBar> {
       child: CNTabBar(
         items: [
           CNTabBarItem(
-            label: widget.availableModelsLabel,
-            icon: CNSymbol(widget.availableModelsIcon),
+            label: widget.firstTabLabel,
+            icon: CNSymbol(widget.firstTabIcon),
           ),
           CNTabBarItem(
-            label: widget.downloadedModelsLabel,
-            icon: CNSymbol(widget.downloadedModelsIcon),
+            label: widget.secondTabLabel,
+            icon: CNSymbol(widget.secondTabIcon),
           ),
         ],
         currentIndex: _currentIndex,
@@ -103,7 +86,7 @@ class _ModelTabBarState extends State<ModelTabBar> {
         shrinkCentered: widget.shrinkCentered,
         onTap: (index) {
           setState(() => _currentIndex = index);
-          widget.onTabChanged?.call(index);
+          widget.onTabChanged(index);
         },
       ),
     );
