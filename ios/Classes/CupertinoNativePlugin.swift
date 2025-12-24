@@ -45,6 +45,10 @@ public class CupertinoNativePlugin: NSObject, FlutterPlugin {
 
     let glassEffectContainerFactory = CupertinoGlassEffectContainerViewFactory(messenger: registrar.messenger())
     registrar.register(glassEffectContainerFactory, withId: "CupertinoNativeGlassEffectContainer")
+
+    // Liquid glass segment control (looks like tab bar, operates as segment control)
+    let liquidGlassSegmentedFactory = CupertinoLiquidGlassSegmentedControlViewFactory(messenger: registrar.messenger())
+    registrar.register(liquidGlassSegmentedFactory, withId: "CupertinoNativeLiquidGlassSegmentedControl")
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {

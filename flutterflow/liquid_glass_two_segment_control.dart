@@ -81,7 +81,7 @@ class _LiquidGlassTwoSegmentControlState
       labels: [widget.firstLabel, widget.secondLabel],
       selectedIndex: _currentIndex,
       color: widget.tintColor ?? CupertinoTheme.of(context).primaryColor,
-      height: widget.height ?? 32.0,
+      height: widget.height ?? 44.0,
       shrinkWrap: widget.shrinkWrap,
       sfSymbols: symbols,
       onValueChanged: (index) {

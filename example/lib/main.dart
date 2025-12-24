@@ -24,6 +24,7 @@ import 'demos/cupertino_slideable_list_tile_demo.dart';
 import 'demos/liquid_glass_message_input.dart';
 import 'demos/liquid_glass_search_text_field.dart';
 import 'demos/liquid_glass_two_tab_bar.dart';
+import 'demos/liquid_glass_segmented_control.dart';
 
 void main() {
   runApp(const MyApp());
@@ -352,6 +353,18 @@ class HomePage extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     CupertinoPageRoute(builder: (_) => const LiquidGlassTwoTabBarDemoPage()),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: Text('Liquid Glass Segment Control'),
+                leading: CNIcon(
+                  symbol: CNSymbol('rectangle.split.2x1', color: accentColor),
+                ),
+                trailing: CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(builder: (_) => const LiquidGlassSegmentedControlDemoPage()),
                   );
                 },
               ),

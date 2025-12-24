@@ -22,6 +22,7 @@ export 'components/cupertino_slideable_list_tile.dart';
 export 'components/liquid_glass_input_dialog.dart';
 export 'components/liquid_glass_message_input.dart';
 export 'components/liquid_glass_search_text_field.dart';
+export 'components/liquid_glass_segmented_control.dart';
 
 import 'package:flutter/services.dart';
 import 'cupertino_native_platform_interface.dart';

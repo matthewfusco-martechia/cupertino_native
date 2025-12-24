@@ -1,15 +1,9 @@
+## 0.1.2
+
+* Fixed `LiquidGlassSegmentedControl` layout clipping and edge artifacts.
+* Restored native `UITabBar` implementation with safety insets for perfect pill shape.
+* Optimized icon and text alignment for "Two Tab Bar" aesthetic.
+
 ## 0.1.1
 
-* Adds link to blog post in readme.
-
-## 0.1.0
-
-* Cleaned up API.
-* Added polished (somewhat) examples.
-* Compiles and runs on MacOS.
-* Much improved readme file.
-* Dart doc and analyzer requirement.
-
-## 0.0.1
-
-* Initial release (to reserve pub name).
+* Initial release of Liquid Glass components.

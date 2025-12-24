@@ -150,6 +150,11 @@ class CupertinoTabBarPlatformView: NSObject, FlutterPlatformView, UITabBarDelega
     self.currentSymbols = symbols
     self.leftInsetVal = leftInset
     self.rightInsetVal = rightInset
+    
+    // Add pan gesture for sliding between tabs
+    let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
+    container.addGestureRecognizer(panGesture)
+    
 channel.setMethodCallHandler { [weak self] call, result in
       guard let self = self else { result(nil); return }
       switch call.method {
@@ -370,4 +375,54 @@ channel.setMethodCallHandler { [weak self] call, result in
     let b = CGFloat(argb & 0xFF) / 255.0
     return UIColor(red: r, green: g, blue: b, alpha: a)
   }
+  
+  // MARK: - Pan Gesture Handler for Sliding Selection
+  
+  @objc private func handlePanGesture(_ gesture: UIPanGestureRecognizer) {
+    guard gesture.state == .changed || gesture.state == .ended else { return }
+    
+    let location = gesture.location(in: container)
+    
+    // Single bar case
+    if let bar = tabBar, let items = bar.items, items.count > 0 {
+      let itemWidth = container.bounds.width / CGFloat(items.count)
+      var newIdx = Int(location.x / itemWidth)
+      newIdx = max(0, min(newIdx, items.count - 1))
+      
+      if bar.selectedItem != items[newIdx] {
+        bar.selectedItem = items[newIdx]
+        channel.invokeMethod("valueChanged", arguments: ["index": newIdx])
+      }
+      return
+    }
+    
+    // Split bar case
+    if let left = tabBarLeft, let right = tabBarRight, let leftItems = left.items, let rightItems = right.items {
+      let totalCount = leftItems.count + rightItems.count
+      guard totalCount > 0 else { return }
+      
+      let itemWidth = container.bounds.width / CGFloat(totalCount)
+      var newIdx = Int(location.x / itemWidth)
+      newIdx = max(0, min(newIdx, totalCount - 1))
+      
+      var currentIdx: Int = -1
+      if let selected = left.selectedItem, let idx = leftItems.firstIndex(of: selected) {
+        currentIdx = idx
+      } else if let selected = right.selectedItem, let idx = rightItems.firstIndex(of: selected) {
+        currentIdx = leftItems.count + idx
+      }
+      
+      if newIdx != currentIdx {
+        if newIdx < leftItems.count {
+          left.selectedItem = leftItems[newIdx]
+          right.selectedItem = nil
+        } else {
+          left.selectedItem = nil
+          right.selectedItem = rightItems[newIdx - leftItems.count]
+        }
+        channel.invokeMethod("valueChanged", arguments: ["index": newIdx])
+      }
+    }
+  }
 }
+
