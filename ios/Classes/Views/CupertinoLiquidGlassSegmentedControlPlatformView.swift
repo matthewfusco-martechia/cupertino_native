@@ -116,8 +116,13 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     // Add Pan Gesture
     let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
     panGesture.delegate = self
-    panGesture.cancelsTouchesInView = false // Allow taps to pass through to buttons initially
+    panGesture.cancelsTouchesInView = false
     container.addGestureRecognizer(panGesture)
+    
+    // Add Tap Gesture (Explicit handling to ensure responsiveness)
+    let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTapGesture(_:)))
+    tapGesture.cancelsTouchesInView = false
+    container.addGestureRecognizer(tapGesture)
 
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self = self else { result(nil); return }
@@ -174,22 +179,31 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
   public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
       if let pan = gestureRecognizer as? UIPanGestureRecognizer {
           let velocity = pan.velocity(in: container)
-          // Only begin if the gesture is predominantly horizontal
-          return abs(velocity.x) > abs(velocity.y)
+          // Allow if zero (start) or horizontal
+          return velocity == .zero || abs(velocity.x) >= abs(velocity.y)
       }
       return true
   }
   
   public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-      // Allow simultanous recognition so we don't block other non-conflicting gestures, or handle logic here
-      return false 
+      // Allow taps and pans to coexist if needed
+      return true 
+  }
+
+  // Tap Gesture
+  @objc private func handleTapGesture(_ gesture: UITapGestureRecognizer) {
+    let location = gesture.location(in: container)
+    updateSelection(at: location)
   }
 
   // Pan Gesture
   @objc private func handlePanGesture(_ gesture: UIPanGestureRecognizer) {
     guard gesture.state == .changed || gesture.state == .ended else { return }
-    
     let location = gesture.location(in: container)
+    updateSelection(at: location)
+  }
+
+  private func updateSelection(at location: CGPoint) {
     if let bar = tabBar, let items = bar.items, items.count > 0 {
       let itemWidth = container.bounds.width / CGFloat(items.count)
       var newIdx = Int(location.x / itemWidth)

@@ -16,7 +16,7 @@ import 'package:cupertino_native/cupertino_native.dart';
 /// A premium "Liquid Glass" segmented control with native iOS fidelity.
 /// 
 /// IMPLEMENTATION NOTE:
-/// This widget requires the 'cupertino_native' package to be added to 
+/// This widget requires the 'cupertino_native' package (v0.1.4+) to be added to 
 /// your project's pubspec dependencies. It relies on platform-specific 
 /// Swift code provided by that package.
 class LiquidGlassTwoSegmentControl extends StatefulWidget {
