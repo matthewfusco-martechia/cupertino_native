@@ -1,16 +1,34 @@
 import Flutter
 import UIKit
 
-/// Reverted transparency and custom view attempts.
-/// using strictly native UITabBar with corner radius and precise layout adjustments
-/// to match the "Liquid Glass" demo while fixing text clipping.
-class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
+/// A true Liquid Glass segmented control using UIGlassEffect on iOS 26+.
+/// Provides a pill-shaped segmented control with a sliding glass selection indicator.
+class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatformView {
   private let channel: FlutterMethodChannel
   private let container: UIView
-  private var tabBar: UITabBar?
+  
+  // Background glass container
+  private var backgroundGlassView: UIVisualEffectView!
+  
+  // Selection indicator (the sliding glass pill)
+  private var selectionIndicator: UIVisualEffectView!
+  
+  // Segment items
+  private var segmentStackView: UIStackView!
+  private var segmentViews: [SegmentItemView] = []
+  
+  // State
   private var labels: [String] = []
   private var symbols: [String] = []
+  private var selectedIndex: Int = 0
   private var tintColor: UIColor?
+  private var isDark: Bool = true
+  
+  // Layout constants
+  private let itemWidth: CGFloat = 100
+  private let itemHeight: CGFloat = 70
+  private let cornerRadius: CGFloat = 25
+  private let selectionPadding: CGFloat = 6
   
   init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
     self.channel = FlutterMethodChannel(name: "CupertinoNativeLiquidGlassSegmentedControl_\(viewId)", binaryMessenger: messenger)
@@ -22,182 +40,313 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     if let dict = args as? [String: Any] {
       if let arr = dict["labels"] as? [String] { labels = arr }
       if let arr = dict["sfSymbols"] as? [String] { symbols = arr }
+      if let v = dict["isDark"] as? NSNumber { isDark = v.boolValue }
+      if let v = dict["selectedIndex"] as? NSNumber { selectedIndex = v.intValue }
+      if let style = dict["style"] as? [String: Any] {
+        if let n = style["tint"] as? NSNumber { tintColor = Self.colorFromARGB(n.intValue) }
+      }
     }
-
+    
     container.backgroundColor = .clear
-    
-    // Apply styling
-    var isDark = true
-    var selectedIndex = 0
-    var tint: UIColor? = nil
-    
-    if let dict = args as? [String: Any] {
-        if let v = dict["isDark"] as? NSNumber { isDark = v.boolValue }
-        if let v = dict["selectedIndex"] as? NSNumber { selectedIndex = v.intValue }
-        if let style = dict["style"] as? [String: Any] {
-            if let n = style["tint"] as? NSNumber { tint = Self.colorFromARGB(n.intValue) }
-        }
-    }
-    
     if #available(iOS 13.0, *) {
-        container.overrideUserInterfaceStyle = isDark ? .dark : .light
+      container.overrideUserInterfaceStyle = isDark ? .dark : .light
     }
     
-    let bar = UITabBar(frame: .zero)
-    self.tabBar = bar
-    bar.delegate = self
-    bar.translatesAutoresizingMaskIntoConstraints = false
+    setupViews()
+    setupGestures()
+    setupChannel()
+  }
+  
+  func view() -> UIView { container }
+  
+  // MARK: - Setup
+  
+  private func setupViews() {
+    // Background glass effect
+    let backgroundEffect: UIVisualEffect
+    if #available(iOS 26.0, *) {
+      let glassEffect = UIGlassEffect(style: .regular)
+      backgroundEffect = glassEffect
+    } else {
+      backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
+    }
     
-    if #available(iOS 10.0, *), let tint = tint { bar.tintColor = tint }
-    
+    backgroundGlassView = UIVisualEffectView(effect: backgroundEffect)
+    backgroundGlassView.translatesAutoresizingMaskIntoConstraints = false
+    backgroundGlassView.layer.cornerRadius = cornerRadius
+    backgroundGlassView.clipsToBounds = true
     if #available(iOS 13.0, *) {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground() // Native Liquid Glass Material
-        
-        // Remove shadow for cleaner look
-        appearance.shadowImage = nil
-        appearance.shadowColor = .clear
-        
-        // Layout Strategy: Balanced centering
-        let offset = UIOffset(horizontal: 0, vertical: 0)
-        appearance.stackedLayoutAppearance.normal.titlePositionAdjustment = offset
-        appearance.stackedLayoutAppearance.selected.titlePositionAdjustment = offset
-        
-        // Font 11pt Medium
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 11, weight: .medium)]
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 11, weight: .medium)]
-        
-        appearance.stackedItemPositioning = .fill
-
-        bar.standardAppearance = appearance
-        if #available(iOS 15.0, *) {
-            bar.scrollEdgeAppearance = appearance
-        }
+      backgroundGlassView.layer.cornerCurve = .continuous
+    }
+    container.addSubview(backgroundGlassView)
+    
+    // Selection indicator (inner glass pill)
+    let selectionEffect: UIVisualEffect
+    if #available(iOS 26.0, *) {
+      let glassEffect = UIGlassEffect(style: .regular)
+      glassEffect.isInteractive = true
+      selectionEffect = glassEffect
+    } else {
+      selectionEffect = UIBlurEffect(style: .systemThickMaterial)
     }
     
-    // Build Items
-    var items: [UITabBarItem] = []
+    selectionIndicator = UIVisualEffectView(effect: selectionEffect)
+    selectionIndicator.translatesAutoresizingMaskIntoConstraints = false
+    selectionIndicator.layer.cornerRadius = cornerRadius - selectionPadding
+    selectionIndicator.clipsToBounds = true
+    if #available(iOS 13.0, *) {
+      selectionIndicator.layer.cornerCurve = .continuous
+    }
+    backgroundGlassView.contentView.addSubview(selectionIndicator)
+    
+    // Segment stack view
+    segmentStackView = UIStackView()
+    segmentStackView.translatesAutoresizingMaskIntoConstraints = false
+    segmentStackView.axis = .horizontal
+    segmentStackView.distribution = .fillEqually
+    segmentStackView.alignment = .fill
+    backgroundGlassView.contentView.addSubview(segmentStackView)
+    
+    // Create segment items
     let count = max(labels.count, symbols.count)
-    let symbolConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
-    
     for i in 0..<count {
-        var image: UIImage? = nil
-        if i < symbols.count { 
-            image = UIImage(systemName: symbols[i], withConfiguration: symbolConfig)
-        }
-        let title = (i < labels.count) ? labels[i] : nil
-        let item = UITabBarItem(title: title, image: image, selectedImage: image)
-        
-        // Moderate offset to center icon (-2) without pushing it too high
-        item.imageInsets = UIEdgeInsets(top: -2, left: 0, bottom: 2, right: 0)
-        
-        items.append(item)
-    }
-    bar.items = items
-    if let items = bar.items, selectedIndex >= 0, selectedIndex < items.count {
-        bar.selectedItem = items[selectedIndex]
+      let label = (i < labels.count) ? labels[i] : ""
+      let symbol = (i < symbols.count) ? symbols[i] : ""
+      let isSelected = (i == selectedIndex)
+      
+      let segmentView = SegmentItemView(
+        label: label,
+        sfSymbol: symbol,
+        isSelected: isSelected,
+        tintColor: tintColor ?? .systemBlue
+      )
+      segmentView.tag = i
+      segmentViews.append(segmentView)
+      segmentStackView.addArrangedSubview(segmentView)
     }
     
-    // Pill Shape
-    bar.layer.cornerRadius = 25
-    bar.clipsToBounds = true
-    if #available(iOS 13.0, *) {
-        bar.layer.cornerCurve = .continuous
-    }
-    
-    container.addSubview(bar)
-    
-    // Layout: Inset by 2pt for safety margin
+    // Layout constraints
     NSLayoutConstraint.activate([
-        bar.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2),
-        bar.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -2),
-        bar.topAnchor.constraint(equalTo: container.topAnchor, constant: 2),
-        bar.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2)
+      backgroundGlassView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+      backgroundGlassView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+      backgroundGlassView.topAnchor.constraint(equalTo: container.topAnchor),
+      backgroundGlassView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+      
+      segmentStackView.leadingAnchor.constraint(equalTo: backgroundGlassView.contentView.leadingAnchor),
+      segmentStackView.trailingAnchor.constraint(equalTo: backgroundGlassView.contentView.trailingAnchor),
+      segmentStackView.topAnchor.constraint(equalTo: backgroundGlassView.contentView.topAnchor),
+      segmentStackView.bottomAnchor.constraint(equalTo: backgroundGlassView.contentView.bottomAnchor),
     ])
     
-    // Add Pan Gesture
-    let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
-    container.addGestureRecognizer(panGesture)
-
+    // Position selection indicator after layout
+    DispatchQueue.main.async {
+      self.updateSelectionIndicatorPosition(animated: false)
+    }
+  }
+  
+  private func setupGestures() {
+    let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+    backgroundGlassView.addGestureRecognizer(tapGesture)
+    
+    let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+    backgroundGlassView.addGestureRecognizer(panGesture)
+  }
+  
+  private func setupChannel() {
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self = self else { result(nil); return }
       switch call.method {
       case "getIntrinsicSize":
-          if let bar = self.tabBar, let items = bar.items {
-              let size = bar.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
-              // 120pt width per item
-              let minWidth = CGFloat(items.count * 120)
-              let finalWidth = max(size.width, minWidth)
-              // 90pt height
-              result(["width": Double(finalWidth + 20), "height": Double(max(size.height, 90.0))])
-          } else {
-              result(["width": 240.0, "height": 90.0])
-          }
+        let count = max(self.labels.count, self.symbols.count)
+        let width = CGFloat(count) * self.itemWidth + 20
+        let height = self.itemHeight + 20
+        result(["width": Double(width), "height": Double(height)])
+        
       case "setSelectedIndex":
         if let args = call.arguments as? [String: Any], let idx = (args["index"] as? NSNumber)?.intValue {
-            if let bar = self.tabBar, let items = bar.items, idx >= 0, idx < items.count {
-                bar.selectedItem = items[idx]
-            }
-            result(nil)
-        } else { result(FlutterError(code: "bad_args", message: "Missing index", details: nil)) }
+          if idx >= 0 && idx < self.segmentViews.count && idx != self.selectedIndex {
+            self.setSelectedIndex(idx, animated: true, notify: false)
+          }
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing index", details: nil))
+        }
+        
       case "setStyle":
         if let args = call.arguments as? [String: Any] {
-           if let n = args["tint"] as? NSNumber {
-               let c = Self.colorFromARGB(n.intValue)
-               if let bar = self.tabBar { bar.tintColor = c }
-           }
-           result(nil)
-        } else { result(FlutterError(code: "bad_args", message: "Missing style", details: nil)) }
+          if let n = args["tint"] as? NSNumber {
+            self.tintColor = Self.colorFromARGB(n.intValue)
+            self.updateTintColor()
+          }
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing style", details: nil))
+        }
+        
       case "setBrightness":
         if let args = call.arguments as? [String: Any], let isDark = (args["isDark"] as? NSNumber)?.boolValue {
-            if #available(iOS 13.0, *) {
-                self.container.overrideUserInterfaceStyle = isDark ? .dark : .light
-            }
-            result(nil)
-        } else { result(FlutterError(code: "bad_args", message: "Missing isDark", details: nil)) }
+          self.isDark = isDark
+          if #available(iOS 13.0, *) {
+            self.container.overrideUserInterfaceStyle = isDark ? .dark : .light
+          }
+          result(nil)
+        } else {
+          result(FlutterError(code: "bad_args", message: "Missing isDark", details: nil))
+        }
+        
       default:
         result(nil)
       }
     }
   }
-
-  func view() -> UIView { container }
   
-  // Delegate
-  func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-      if let items = tabBar.items, let index = items.firstIndex(of: item) {
-          channel.invokeMethod("valueChanged", arguments: ["index": index])
-      }
-  }
-
-  // Pan Gesture
-  @objc private func handlePanGesture(_ gesture: UIPanGestureRecognizer) {
-    guard gesture.state == .changed || gesture.state == .ended else { return }
-    
-    let location = gesture.location(in: container)
-    if let bar = tabBar, let items = bar.items, items.count > 0 {
-      let itemWidth = container.bounds.width / CGFloat(items.count)
-      var newIdx = Int(location.x / itemWidth)
-      newIdx = max(0, min(newIdx, items.count - 1))
-      
-      if bar.selectedItem != items[newIdx] {
-        bar.selectedItem = items[newIdx]
-        
-        if #available(iOS 10.0, *) {
-             let generator = UISelectionFeedbackGenerator()
-             generator.selectionChanged()
-        }
-        
-        channel.invokeMethod("valueChanged", arguments: ["index": newIdx])
+  // MARK: - Gestures
+  
+  @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
+    let location = gesture.location(in: segmentStackView)
+    for (index, segmentView) in segmentViews.enumerated() {
+      if segmentView.frame.contains(location) {
+        setSelectedIndex(index, animated: true, notify: true)
+        break
       }
     }
   }
-
+  
+  @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+    guard gesture.state == .changed || gesture.state == .ended else { return }
+    
+    let location = gesture.location(in: segmentStackView)
+    for (index, segmentView) in segmentViews.enumerated() {
+      if segmentView.frame.contains(location) {
+        if index != selectedIndex {
+          setSelectedIndex(index, animated: true, notify: true)
+        }
+        break
+      }
+    }
+  }
+  
+  // MARK: - Selection
+  
+  private func setSelectedIndex(_ index: Int, animated: Bool, notify: Bool) {
+    guard index >= 0 && index < segmentViews.count else { return }
+    
+    let oldIndex = selectedIndex
+    selectedIndex = index
+    
+    // Update selection states
+    for (i, segmentView) in segmentViews.enumerated() {
+      segmentView.setSelected(i == index, tintColor: tintColor ?? .systemBlue)
+    }
+    
+    // Animate selection indicator
+    updateSelectionIndicatorPosition(animated: animated)
+    
+    // Haptic feedback
+    if animated && oldIndex != index {
+      if #available(iOS 10.0, *) {
+        let generator = UISelectionFeedbackGenerator()
+        generator.selectionChanged()
+      }
+    }
+    
+    // Notify Flutter
+    if notify {
+      channel.invokeMethod("valueChanged", arguments: ["index": index])
+    }
+  }
+  
+  private func updateSelectionIndicatorPosition(animated: Bool) {
+    guard selectedIndex < segmentViews.count else { return }
+    
+    let selectedView = segmentViews[selectedIndex]
+    
+    // Convert frame to backgroundGlassView coordinate space
+    let frame = selectedView.convert(selectedView.bounds, to: backgroundGlassView.contentView)
+    
+    // Inset the frame for padding
+    let indicatorFrame = frame.insetBy(dx: selectionPadding, dy: selectionPadding)
+    
+    if animated {
+      UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [.curveEaseInOut]) {
+        self.selectionIndicator.frame = indicatorFrame
+      }
+    } else {
+      selectionIndicator.frame = indicatorFrame
+    }
+  }
+  
+  private func updateTintColor() {
+    for (i, segmentView) in segmentViews.enumerated() {
+      segmentView.setSelected(i == selectedIndex, tintColor: tintColor ?? .systemBlue)
+    }
+  }
+  
+  // MARK: - Helpers
+  
   private static func colorFromARGB(_ argb: Int) -> UIColor {
     let a = CGFloat((argb >> 24) & 0xFF) / 255.0
     let r = CGFloat((argb >> 16) & 0xFF) / 255.0
     let g = CGFloat((argb >> 8) & 0xFF) / 255.0
     let b = CGFloat(argb & 0xFF) / 255.0
     return UIColor(red: r, green: g, blue: b, alpha: a)
+  }
+}
+
+// MARK: - Segment Item View
+
+private class SegmentItemView: UIView {
+  private let iconImageView = UIImageView()
+  private let labelView = UILabel()
+  
+  init(label: String, sfSymbol: String, isSelected: Bool, tintColor: UIColor) {
+    super.init(frame: .zero)
+    
+    backgroundColor = .clear
+    
+    // Icon
+    iconImageView.translatesAutoresizingMaskIntoConstraints = false
+    iconImageView.contentMode = .scaleAspectFit
+    if !sfSymbol.isEmpty {
+      let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+      iconImageView.image = UIImage(systemName: sfSymbol, withConfiguration: config)
+    }
+    addSubview(iconImageView)
+    
+    // Label
+    labelView.translatesAutoresizingMaskIntoConstraints = false
+    labelView.text = label
+    labelView.font = UIFont.systemFont(ofSize: 11, weight: .medium)
+    labelView.textAlignment = .center
+    addSubview(labelView)
+    
+    // Layout: icon above label, centered
+    NSLayoutConstraint.activate([
+      iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
+      iconImageView.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+      iconImageView.widthAnchor.constraint(equalToConstant: 28),
+      iconImageView.heightAnchor.constraint(equalToConstant: 28),
+      
+      labelView.centerXAnchor.constraint(equalTo: centerXAnchor),
+      labelView.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 4),
+      labelView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+      labelView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+    ])
+    
+    setSelected(isSelected, tintColor: tintColor)
+  }
+  
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+  
+  func setSelected(_ selected: Bool, tintColor: UIColor) {
+    if selected {
+      iconImageView.tintColor = tintColor
+      labelView.textColor = tintColor
+    } else {
+      iconImageView.tintColor = UIColor.secondaryLabel
+      labelView.textColor = UIColor.secondaryLabel
+    }
   }
 }

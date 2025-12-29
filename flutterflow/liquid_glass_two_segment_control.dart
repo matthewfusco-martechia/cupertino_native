@@ -83,6 +83,7 @@ class _LiquidGlassTwoSegmentControlState
             ? symbols.map((e) => CNSymbol(e)).toList()
             : null,
         selectedIndex: _currentIndex,
+        tint: widget.tintColor,
         onValueChanged: (index) async {
           setState(() => _currentIndex = index);
           HapticFeedback.selectionClick();
