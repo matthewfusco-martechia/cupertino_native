@@ -69,9 +69,13 @@ class _LiquidGlassTwoSegmentControlState
 
   @override
   Widget build(BuildContext context) {
-    List<String> symbols = [];
-    if (widget.firstIcon != null && widget.secondIcon != null) {
-      symbols = [widget.firstIcon!, widget.secondIcon!];
+    // Build symbols list - use empty string for missing icons
+    List<String>? symbols;
+    if (widget.firstIcon != null || widget.secondIcon != null) {
+      symbols = [
+        widget.firstIcon ?? '',
+        widget.secondIcon ?? '',
+      ];
     }
 
     return SizedBox(
@@ -79,7 +83,7 @@ class _LiquidGlassTwoSegmentControlState
       height: widget.height ?? 90,
       child: CNLiquidGlassSegmentedControl(
         labels: [widget.firstLabel, widget.secondLabel],
-        sfSymbols: symbols.isNotEmpty
+        sfSymbols: symbols != null
             ? symbols.map((e) => CNSymbol(e)).toList()
             : null,
         selectedIndex: _currentIndex,
