@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'package:flutter/cupertino.dart';
-import 'package:cupertino_native/components/liquid_glass_segmented_control.dart';
+import 'package:cupertino_native/cupertino_native.dart';
 
 /// A premium "Liquid Glass" segmented control with native iOS fidelity.
 /// 
@@ -80,11 +80,10 @@ class _LiquidGlassTwoSegmentControlState
     return SizedBox(
       width: widget.width ?? 320,
       height: widget.height ?? 90, // Default to 90 for correct glass aspect ratio
-      child: CupertinoLiquidGlassSegmentedControl(
+      child: CNLiquidGlassSegmentedControl(
         labels: [widget.firstLabel, widget.secondLabel],
-        sfSymbols: symbols.isNotEmpty ? symbols : null,
+        sfSymbols: symbols.isNotEmpty ? symbols.map((e) => CNSymbol(e)).toList() : null,
         selectedIndex: _currentIndex,
-        isDark: Theme.of(context).brightness == Brightness.dark,
         onValueChanged: (index) async {
           setState(() => _currentIndex = index);
           await widget.onValueChanged(index);

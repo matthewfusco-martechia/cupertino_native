@@ -4,7 +4,7 @@ import UIKit
 /// Reverted transparency and custom view attempts.
 /// using strictly native UITabBar with corner radius and precise layout adjustments
 /// to match the "Liquid Glass" demo while fixing text clipping.
-class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
+class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate, UIGestureRecognizerDelegate {
   private let channel: FlutterMethodChannel
   private let container: UIView
   private var tabBar: UITabBar?
@@ -115,6 +115,8 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     
     // Add Pan Gesture
     let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
+    panGesture.delegate = self
+    panGesture.cancelsTouchesInView = false // Allow taps to pass through to buttons initially
     container.addGestureRecognizer(panGesture)
 
     channel.setMethodCallHandler { [weak self] call, result in
@@ -166,6 +168,21 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
       if let items = tabBar.items, let index = items.firstIndex(of: item) {
           channel.invokeMethod("valueChanged", arguments: ["index": index])
       }
+  }
+
+  // UIGestureRecognizerDelegate
+  public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+      if let pan = gestureRecognizer as? UIPanGestureRecognizer {
+          let velocity = pan.velocity(in: container)
+          // Only begin if the gesture is predominantly horizontal
+          return abs(velocity.x) > abs(velocity.y)
+      }
+      return true
+  }
+  
+  public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+      // Allow simultanous recognition so we don't block other non-conflicting gestures, or handle logic here
+      return false 
   }
 
   // Pan Gesture
