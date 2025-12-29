@@ -43,6 +43,8 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
         container.overrideUserInterfaceStyle = isDark ? .dark : .light
     }
     
+    // NOTE: Background view removed to make container transparent.
+    
     let bar = UITabBar(frame: .zero)
     self.tabBar = bar
     bar.delegate = self
@@ -52,7 +54,7 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     
     if #available(iOS 13.0, *) {
         let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground() // Native Liquid Glass Material
+        appearance.configureWithTransparentBackground() // Transparent to show decoupled background
         
         // Remove shadow for cleaner look
         appearance.shadowImage = nil
@@ -98,12 +100,8 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
         bar.selectedItem = items[selectedIndex]
     }
     
-    // Pill Shape
-    bar.layer.cornerRadius = 25
-    bar.clipsToBounds = true
-    if #available(iOS 13.0, *) {
-        bar.layer.cornerCurve = .continuous
-    }
+    // Note: We deliberately do NOT set cornerRadius or clipsToBounds on the bar itself,
+    // so that the selection indicator (bubble) can overflow effectively.
     
     container.addSubview(bar)
     
@@ -201,3 +199,4 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     return UIColor(red: r, green: g, blue: b, alpha: a)
   }
 }
+

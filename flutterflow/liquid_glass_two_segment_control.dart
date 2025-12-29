@@ -11,12 +11,14 @@ import 'package:flutter/material.dart';
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'package:flutter/cupertino.dart';
-import 'package:cupertino_native/cupertino_native.dart';
+import 'package:cupertino_native/components/liquid_glass_segmented_control.dart';
 
-/// A native two-segment control with sliding gesture support.
-///
-/// Uses CNSegmentedControl which is backed by native UISegmentedControl.
-/// Supports both tap and slide/drag gestures to switch between segments.
+/// A premium "Liquid Glass" segmented control with native iOS fidelity.
+/// 
+/// IMPLEMENTATION NOTE:
+/// This widget requires the 'cupertino_native' package to be added to 
+/// your project's pubspec dependencies. It relies on platform-specific 
+/// Swift code provided by that package.
 class LiquidGlassTwoSegmentControl extends StatefulWidget {
   const LiquidGlassTwoSegmentControl({
     super.key,
@@ -29,7 +31,6 @@ class LiquidGlassTwoSegmentControl extends StatefulWidget {
     required this.secondLabel,
     this.firstIcon,
     this.secondIcon,
-    required this.shrinkWrap,
   });
 
   final double? width;
@@ -41,7 +42,6 @@ class LiquidGlassTwoSegmentControl extends StatefulWidget {
   final String secondLabel;
   final String? firstIcon;
   final String? secondIcon;
-  final bool shrinkWrap;
 
   @override
   State<LiquidGlassTwoSegmentControl> createState() =>
@@ -62,41 +62,34 @@ class _LiquidGlassTwoSegmentControlState
   void didUpdateWidget(covariant LiquidGlassTwoSegmentControl oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.initialIndex != oldWidget.initialIndex) {
-      setState(() => _currentIndex = widget.initialIndex);
+      if (widget.initialIndex >= 0 && widget.initialIndex < 2) {
+          setState(() => _currentIndex = widget.initialIndex);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     // Build SF Symbols list if icons are provided
-    List<CNSymbol>? symbols;
+    // Ensure these match valid SFSymbol names (e.g. 'square.grid.2x2')
+    List<String> symbols = [];
     if (widget.firstIcon != null && widget.secondIcon != null) {
-      symbols = [
-        CNSymbol(widget.firstIcon!),
-        CNSymbol(widget.secondIcon!),
-      ];
+      symbols = [widget.firstIcon!, widget.secondIcon!];
     }
 
-    final control = CNSegmentedControl(
-      labels: [widget.firstLabel, widget.secondLabel],
-      selectedIndex: _currentIndex,
-      color: widget.tintColor ?? CupertinoTheme.of(context).primaryColor,
-      height: widget.height ?? 44.0,
-      shrinkWrap: widget.shrinkWrap,
-      sfSymbols: symbols,
-      onValueChanged: (index) {
-        setState(() => _currentIndex = index);
-        widget.onValueChanged(index);
-      },
+    return SizedBox(
+      width: widget.width ?? 320,
+      height: widget.height ?? 90, // Default to 90 for correct glass aspect ratio
+      child: CupertinoLiquidGlassSegmentedControl(
+        labels: [widget.firstLabel, widget.secondLabel],
+        sfSymbols: symbols.isNotEmpty ? symbols : null,
+        selectedIndex: _currentIndex,
+        isDark: Theme.of(context).brightness == Brightness.dark,
+        onValueChanged: (index) async {
+          setState(() => _currentIndex = index);
+          await widget.onValueChanged(index);
+        },
+      ),
     );
-
-    if (widget.width != null && !widget.shrinkWrap) {
-      return SizedBox(
-        width: widget.width,
-        child: control,
-      );
-    }
-
-    return control;
   }
 }
