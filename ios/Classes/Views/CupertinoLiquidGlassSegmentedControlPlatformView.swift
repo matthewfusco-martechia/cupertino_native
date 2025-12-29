@@ -50,30 +50,8 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     
     if #available(iOS 10.0, *), let tint = tint { bar.tintColor = tint }
     
-    if #available(iOS 13.0, *) {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground() // Native Liquid Glass Material
-        
-        // Remove shadow for cleaner look
-        appearance.shadowImage = nil
-        appearance.shadowColor = .clear
-        
-        // Layout Strategy: Balanced centering
-        let offset = UIOffset(horizontal: 0, vertical: 0)
-        appearance.stackedLayoutAppearance.normal.titlePositionAdjustment = offset
-        appearance.stackedLayoutAppearance.selected.titlePositionAdjustment = offset
-        
-        // Font 11pt Medium
-        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 11, weight: .medium)]
-        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 11, weight: .medium)]
-        
-        appearance.stackedItemPositioning = .fill
+    // Appearance configured later
 
-        bar.standardAppearance = appearance
-        if #available(iOS 15.0, *) {
-            bar.scrollEdgeAppearance = appearance
-        }
-    }
     
     // Build Items
     var items: [UITabBarItem] = []
@@ -98,13 +76,46 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
         bar.selectedItem = items[selectedIndex]
     }
     
-    // Pill Shape
-    bar.layer.cornerRadius = 25
-    bar.clipsToBounds = true
+    // Create Background View (Decoupled from Bar for correct glass look)
     if #available(iOS 13.0, *) {
-        bar.layer.cornerCurve = .continuous
+        let effect = UIBlurEffect(style: .systemUltraThinMaterial)
+        let bg = UIVisualEffectView(effect: effect)
+        bg.translatesAutoresizingMaskIntoConstraints = false
+        bg.layer.cornerRadius = 25
+        bg.layer.cornerCurve = .continuous
+        bg.clipsToBounds = true
+        container.addSubview(bg)
+        
+        NSLayoutConstraint.activate([
+            bg.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2),
+            bg.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -2),
+            bg.topAnchor.constraint(equalTo: container.topAnchor, constant: 2),
+            bg.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2)
+        ])
     }
     
+    // Configure Transparent Bar
+    if #available(iOS 13.0, *) {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.shadowImage = nil
+        appearance.shadowColor = .clear
+        
+        let offset = UIOffset(horizontal: 0, vertical: 0)
+        appearance.stackedLayoutAppearance.normal.titlePositionAdjustment = offset
+        appearance.stackedLayoutAppearance.selected.titlePositionAdjustment = offset
+        
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 11, weight: .medium)]
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 11, weight: .medium)]
+        
+        appearance.stackedItemPositioning = .fill
+        
+        bar.standardAppearance = appearance
+        if #available(iOS 15.0, *) {
+            bar.scrollEdgeAppearance = appearance
+        }
+    }
+
     container.addSubview(bar)
     
     // Layout: Inset by 2pt for safety margin
