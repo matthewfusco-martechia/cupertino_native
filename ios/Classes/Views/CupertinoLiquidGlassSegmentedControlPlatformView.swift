@@ -43,7 +43,23 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
         container.overrideUserInterfaceStyle = isDark ? .dark : .light
     }
     
-    // NOTE: Background view removed to make container transparent.
+    // Create Background View (Decoupled from Bar for correct glass look)
+    if #available(iOS 13.0, *) {
+        let effect = UIBlurEffect(style: .systemUltraThinMaterial)
+        let bg = UIVisualEffectView(effect: effect)
+        bg.translatesAutoresizingMaskIntoConstraints = false
+        bg.layer.cornerRadius = 25
+        bg.layer.cornerCurve = .continuous
+        bg.clipsToBounds = true
+        container.addSubview(bg)
+        
+        NSLayoutConstraint.activate([
+            bg.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2),
+            bg.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -2),
+            bg.topAnchor.constraint(equalTo: container.topAnchor, constant: 2),
+            bg.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2)
+        ])
+    }
     
     let bar = UITabBar(frame: .zero)
     self.tabBar = bar
@@ -186,8 +202,8 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
   }
   
   public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-      // Allow taps and pans to coexist if needed
-      return true 
+      // Return false to prevent the BottomSheet/ScrollView from scrolling while we are dragging this slider
+      return false 
   }
 
   // Tap Gesture
