@@ -10,7 +10,7 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
   // Background glass container
   private var backgroundGlassView: UIVisualEffectView!
   
-  // Selection indicator (the sliding glass pill)
+  // Selection indicator (the sliding glass pill) - positioned manually via frame
   private var selectionIndicator: UIVisualEffectView!
   
   // Segment items
@@ -23,16 +23,16 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
   private var selectedIndex: Int = 0
   private var tintColor: UIColor?
   private var isDark: Bool = true
+  private var hasLaidOutOnce: Bool = false
   
   // Layout constants
   private let itemWidth: CGFloat = 100
-  private let itemHeight: CGFloat = 70
-  private let cornerRadius: CGFloat = 25
-  private let selectionPadding: CGFloat = 6
+  private let cornerRadius: CGFloat = 28
+  private let selectionPadding: CGFloat = 4
   
   init(frame: CGRect, viewId: Int64, args: Any?, messenger: FlutterBinaryMessenger) {
     self.channel = FlutterMethodChannel(name: "CupertinoNativeLiquidGlassSegmentedControl_\(viewId)", binaryMessenger: messenger)
-    self.container = UIView(frame: frame)
+    self.container = LayoutObservingView(frame: frame)
     
     super.init()
     
@@ -50,6 +50,11 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     container.backgroundColor = .clear
     if #available(iOS 13.0, *) {
       container.overrideUserInterfaceStyle = isDark ? .dark : .light
+    }
+    
+    // Set layout callback
+    (container as? LayoutObservingView)?.onLayout = { [weak self] in
+      self?.onContainerLayout()
     }
     
     setupViews()
@@ -80,7 +85,7 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     }
     container.addSubview(backgroundGlassView)
     
-    // Selection indicator (inner glass pill)
+    // Selection indicator (inner glass pill) - uses frame-based layout
     let selectionEffect: UIVisualEffect
     if #available(iOS 26.0, *) {
       let glassEffect = UIGlassEffect(style: .regular)
@@ -91,15 +96,18 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     }
     
     selectionIndicator = UIVisualEffectView(effect: selectionEffect)
-    selectionIndicator.translatesAutoresizingMaskIntoConstraints = false
+    // NOTE: Using frame-based layout, NOT auto-layout
+    selectionIndicator.translatesAutoresizingMaskIntoConstraints = true
     selectionIndicator.layer.cornerRadius = cornerRadius - selectionPadding
     selectionIndicator.clipsToBounds = true
     if #available(iOS 13.0, *) {
       selectionIndicator.layer.cornerCurve = .continuous
     }
+    // Set initial frame to avoid zero-size
+    selectionIndicator.frame = CGRect(x: selectionPadding, y: selectionPadding, width: itemWidth - selectionPadding * 2, height: 70)
     backgroundGlassView.contentView.addSubview(selectionIndicator)
     
-    // Segment stack view
+    // Segment stack view - added AFTER selection indicator so it's on top
     segmentStackView = UIStackView()
     segmentStackView.translatesAutoresizingMaskIntoConstraints = false
     segmentStackView.axis = .horizontal
@@ -125,7 +133,7 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
       segmentStackView.addArrangedSubview(segmentView)
     }
     
-    // Layout constraints
+    // Layout constraints for background and stack view
     NSLayoutConstraint.activate([
       backgroundGlassView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
       backgroundGlassView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -137,10 +145,13 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
       segmentStackView.topAnchor.constraint(equalTo: backgroundGlassView.contentView.topAnchor),
       segmentStackView.bottomAnchor.constraint(equalTo: backgroundGlassView.contentView.bottomAnchor),
     ])
-    
-    // Position selection indicator after layout
-    DispatchQueue.main.async {
-      self.updateSelectionIndicatorPosition(animated: false)
+  }
+  
+  private func onContainerLayout() {
+    // Called after container lays out - now segment frames are valid
+    if !hasLaidOutOnce {
+      hasLaidOutOnce = true
+      updateSelectionIndicatorPosition(animated: false)
     }
   }
   
@@ -159,7 +170,7 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
       case "getIntrinsicSize":
         let count = max(self.labels.count, self.symbols.count)
         let width = CGFloat(count) * self.itemWidth + 20
-        let height = self.itemHeight + 20
+        let height: CGFloat = 90
         result(["width": Double(width), "height": Double(height)])
         
       case "setSelectedIndex":
@@ -258,17 +269,18 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
   
   private func updateSelectionIndicatorPosition(animated: Bool) {
     guard selectedIndex < segmentViews.count else { return }
+    guard segmentStackView.bounds.width > 0 else { return }
     
     let selectedView = segmentViews[selectedIndex]
     
-    // Convert frame to backgroundGlassView coordinate space
+    // Convert frame to backgroundGlassView.contentView coordinate space
     let frame = selectedView.convert(selectedView.bounds, to: backgroundGlassView.contentView)
     
     // Inset the frame for padding
     let indicatorFrame = frame.insetBy(dx: selectionPadding, dy: selectionPadding)
     
     if animated {
-      UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: [.curveEaseInOut]) {
+      UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.3, options: [.curveEaseInOut]) {
         self.selectionIndicator.frame = indicatorFrame
       }
     } else {
@@ -293,11 +305,23 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
   }
 }
 
+// MARK: - Layout Observing View
+
+private class LayoutObservingView: UIView {
+  var onLayout: (() -> Void)?
+  
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    onLayout?()
+  }
+}
+
 // MARK: - Segment Item View
 
 private class SegmentItemView: UIView {
   private let iconImageView = UIImageView()
   private let labelView = UILabel()
+  private var hasIcon: Bool = false
   
   init(label: String, sfSymbol: String, isSelected: Bool, tintColor: UIColor) {
     super.init(frame: .zero)
@@ -307,31 +331,41 @@ private class SegmentItemView: UIView {
     // Icon
     iconImageView.translatesAutoresizingMaskIntoConstraints = false
     iconImageView.contentMode = .scaleAspectFit
-    if !sfSymbol.isEmpty {
-      let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+    hasIcon = !sfSymbol.isEmpty
+    if hasIcon {
+      let config = UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold)
       iconImageView.image = UIImage(systemName: sfSymbol, withConfiguration: config)
+      addSubview(iconImageView)
     }
-    addSubview(iconImageView)
     
     // Label
     labelView.translatesAutoresizingMaskIntoConstraints = false
     labelView.text = label
-    labelView.font = UIFont.systemFont(ofSize: 11, weight: .medium)
+    labelView.font = UIFont.systemFont(ofSize: 12, weight: .medium)
     labelView.textAlignment = .center
     addSubview(labelView)
     
-    // Layout: icon above label, centered
-    NSLayoutConstraint.activate([
-      iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
-      iconImageView.topAnchor.constraint(equalTo: topAnchor, constant: 12),
-      iconImageView.widthAnchor.constraint(equalToConstant: 28),
-      iconImageView.heightAnchor.constraint(equalToConstant: 28),
-      
-      labelView.centerXAnchor.constraint(equalTo: centerXAnchor),
-      labelView.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 4),
-      labelView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
-      labelView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-    ])
+    // Layout: icon above label if both present, or just label centered
+    if hasIcon {
+      NSLayoutConstraint.activate([
+        iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
+        iconImageView.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+        iconImageView.widthAnchor.constraint(equalToConstant: 28),
+        iconImageView.heightAnchor.constraint(equalToConstant: 28),
+        
+        labelView.centerXAnchor.constraint(equalTo: centerXAnchor),
+        labelView.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 4),
+        labelView.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 4),
+        labelView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -4),
+      ])
+    } else {
+      NSLayoutConstraint.activate([
+        labelView.centerXAnchor.constraint(equalTo: centerXAnchor),
+        labelView.centerYAnchor.constraint(equalTo: centerYAnchor),
+        labelView.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 8),
+        labelView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
+      ])
+    }
     
     setSelected(isSelected, tintColor: tintColor)
   }
