@@ -4,7 +4,7 @@ import UIKit
 /// Reverted transparency and custom view attempts.
 /// using strictly native UITabBar with corner radius and precise layout adjustments
 /// to match the "Liquid Glass" demo while fixing text clipping.
-class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate, UIGestureRecognizerDelegate {
+class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatformView, UITabBarDelegate {
   private let channel: FlutterMethodChannel
   private let container: UIView
   private var tabBar: UITabBar?
@@ -43,24 +43,6 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
         container.overrideUserInterfaceStyle = isDark ? .dark : .light
     }
     
-    // Create Background View (Decoupled from Bar for correct glass look)
-    if #available(iOS 13.0, *) {
-        let effect = UIBlurEffect(style: .systemUltraThinMaterial)
-        let bg = UIVisualEffectView(effect: effect)
-        bg.translatesAutoresizingMaskIntoConstraints = false
-        bg.layer.cornerRadius = 25
-        bg.layer.cornerCurve = .continuous
-        bg.clipsToBounds = true
-        container.addSubview(bg)
-        
-        NSLayoutConstraint.activate([
-            bg.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 2),
-            bg.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -2),
-            bg.topAnchor.constraint(equalTo: container.topAnchor, constant: 2),
-            bg.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2)
-        ])
-    }
-    
     let bar = UITabBar(frame: .zero)
     self.tabBar = bar
     bar.delegate = self
@@ -70,7 +52,7 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     
     if #available(iOS 13.0, *) {
         let appearance = UITabBarAppearance()
-        appearance.configureWithTransparentBackground() // Transparent to show decoupled background
+        appearance.configureWithDefaultBackground() // Native Liquid Glass Material
         
         // Remove shadow for cleaner look
         appearance.shadowImage = nil
@@ -116,8 +98,12 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
         bar.selectedItem = items[selectedIndex]
     }
     
-    // Note: We deliberately do NOT set cornerRadius or clipsToBounds on the bar itself,
-    // so that the selection indicator (bubble) can overflow effectively.
+    // Pill Shape
+    bar.layer.cornerRadius = 25
+    bar.clipsToBounds = true
+    if #available(iOS 13.0, *) {
+        bar.layer.cornerCurve = .continuous
+    }
     
     container.addSubview(bar)
     
@@ -131,14 +117,7 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     
     // Add Pan Gesture
     let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePanGesture(_:)))
-    panGesture.delegate = self
-    panGesture.cancelsTouchesInView = false
     container.addGestureRecognizer(panGesture)
-    
-    // Add Tap Gesture (Explicit handling to ensure responsiveness)
-    let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTapGesture(_:)))
-    tapGesture.cancelsTouchesInView = false
-    container.addGestureRecognizer(tapGesture)
 
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self = self else { result(nil); return }
@@ -191,35 +170,11 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
       }
   }
 
-  // UIGestureRecognizerDelegate
-  public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-      if let pan = gestureRecognizer as? UIPanGestureRecognizer {
-          let velocity = pan.velocity(in: container)
-          // Allow if zero (start) or horizontal
-          return velocity == .zero || abs(velocity.x) >= abs(velocity.y)
-      }
-      return true
-  }
-  
-  public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-      // Return false to prevent the BottomSheet/ScrollView from scrolling while we are dragging this slider
-      return false 
-  }
-
-  // Tap Gesture
-  @objc private func handleTapGesture(_ gesture: UITapGestureRecognizer) {
-    let location = gesture.location(in: container)
-    updateSelection(at: location)
-  }
-
   // Pan Gesture
   @objc private func handlePanGesture(_ gesture: UIPanGestureRecognizer) {
     guard gesture.state == .changed || gesture.state == .ended else { return }
+    
     let location = gesture.location(in: container)
-    updateSelection(at: location)
-  }
-
-  private func updateSelection(at location: CGPoint) {
     if let bar = tabBar, let items = bar.items, items.count > 0 {
       let itemWidth = container.bounds.width / CGFloat(items.count)
       var newIdx = Int(location.x / itemWidth)
@@ -246,4 +201,3 @@ class CupertinoLiquidGlassSegmentedControlPlatformView: NSObject, FlutterPlatfor
     return UIColor(red: r, green: g, blue: b, alpha: a)
   }
 }
-

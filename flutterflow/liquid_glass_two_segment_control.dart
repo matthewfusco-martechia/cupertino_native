@@ -15,10 +15,8 @@ import 'package:cupertino_native/cupertino_native.dart';
 
 /// A premium "Liquid Glass" segmented control with native iOS fidelity.
 /// 
-/// IMPLEMENTATION NOTE:
-/// This widget requires the 'cupertino_native' package (v0.1.4+) to be added to 
-/// your project's pubspec dependencies. It relies on platform-specific 
-/// Swift code provided by that package.
+/// This widget wraps the native CNLiquidGlassSegmentedControl but handles
+/// gestures in Dart to ensure perfect behavior inside ScrollViews/PageViews.
 class LiquidGlassTwoSegmentControl extends StatefulWidget {
   const LiquidGlassTwoSegmentControl({
     super.key,
@@ -51,11 +49,17 @@ class LiquidGlassTwoSegmentControl extends StatefulWidget {
 class _LiquidGlassTwoSegmentControlState
     extends State<LiquidGlassTwoSegmentControl> {
   late int _currentIndex;
+  
+  // Drag state for interactive sliding
+  bool _isDragging = false;
+  int _dragIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    if (_currentIndex < 0) _currentIndex = 0;
+    if (_currentIndex > 1) _currentIndex = 1;
   }
 
   @override
@@ -63,32 +67,79 @@ class _LiquidGlassTwoSegmentControlState
     super.didUpdateWidget(oldWidget);
     if (widget.initialIndex != oldWidget.initialIndex) {
       if (widget.initialIndex >= 0 && widget.initialIndex < 2) {
-          setState(() => _currentIndex = widget.initialIndex);
+          if (!_isDragging) {
+             setState(() => _currentIndex = widget.initialIndex);
+          }
       }
     }
   }
 
+  void _handleTap(int index) async {
+    if (_currentIndex == index) return;
+    setState(() => _currentIndex = index);
+    HapticFeedback.selectionClick();
+    await widget.onValueChanged(index);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Build SF Symbols list if icons are provided
-    // Ensure these match valid SFSymbol names (e.g. 'square.grid.2x2')
     List<String> symbols = [];
     if (widget.firstIcon != null && widget.secondIcon != null) {
       symbols = [widget.firstIcon!, widget.secondIcon!];
     }
+    
+    final int displayIndex = _isDragging ? _dragIndex : _currentIndex;
 
     return SizedBox(
       width: widget.width ?? 320,
-      height: widget.height ?? 90, // Default to 90 for correct glass aspect ratio
-      child: CNLiquidGlassSegmentedControl(
-        labels: [widget.firstLabel, widget.secondLabel],
-        sfSymbols: symbols.isNotEmpty ? symbols.map((e) => CNSymbol(e)).toList() : null,
-        selectedIndex: _currentIndex,
-        onValueChanged: (index) async {
-          setState(() => _currentIndex = index);
-          await widget.onValueChanged(index);
+      height: widget.height ?? 90, 
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double w = constraints.maxWidth;
+          
+          return GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragStart: (details) {
+              setState(() {
+                _isDragging = true;
+                _dragIndex = _currentIndex;
+              });
+            },
+            onHorizontalDragUpdate: (details) {
+              final double dx = details.localPosition.dx;
+              final int newIndex = (dx >= w / 2) ? 1 : 0;
+              if (newIndex != _dragIndex) {
+                setState(() => _dragIndex = newIndex);
+                HapticFeedback.selectionClick();
+              }
+            },
+            onHorizontalDragEnd: (details) async {
+              final int committed = _dragIndex;
+              setState(() {
+                _isDragging = false;
+                _currentIndex = committed;
+              });
+              await widget.onValueChanged(committed);
+            },
+            onHorizontalDragCancel: () {
+              setState(() {
+                _isDragging = false;
+              });
+            },
+            child: CNLiquidGlassSegmentedControl(
+              labels: [widget.firstLabel, widget.secondLabel],
+              sfSymbols: symbols.isNotEmpty ? symbols.map((e) => CNSymbol(e)).toList() : null,
+              selectedIndex: displayIndex,
+              onValueChanged: (index) {
+                if (!_isDragging) {
+                  _handleTap(index);
+                }
+              },
+            ),
+          );
         },
       ),
     );
   }
 }
+
