@@ -102,6 +102,28 @@ class CupertinoSegmentedControlPlatformView: NSObject, FlutterPlatformView {
           self.control.isEnabled = e
           result(nil)
         } else { result(FlutterError(code: "bad_args", message: "Missing enabled", details: nil)) }
+      case "setItems":
+        if let args = call.arguments as? [String: Any] {
+          self.labels = (args["labels"] as? [String]) ?? []
+          self.symbols = (args["sfSymbols"] as? [String]) ?? []
+          if let sizes = args["sfSymbolSizes"] as? [NSNumber] {
+             self.perSymbolSizes = sizes.map { CGFloat(truncating: $0) }
+          }
+          if let colors = args["sfSymbolColors"] as? [NSNumber] {
+             self.perSymbolColors = colors.map { Self.colorFromARGB($0.intValue) }
+          }
+          if let palettes = args["sfSymbolPaletteColors"] as? [[NSNumber]] {
+             self.perSymbolPalettes = palettes.map { $0.map { Self.colorFromARGB($0.intValue) } }
+          }
+          if let modes = args["sfSymbolRenderingModes"] as? [String?] {
+             self.perSymbolModes = modes
+          }
+          if let gradients = args["sfSymbolGradientEnabled"] as? [NSNumber?] {
+             self.perSymbolGradientEnabled = gradients
+          }
+          self.rebuildSegments()
+          result(nil)
+        } else { result(FlutterError(code: "bad_args", message: "Missing items", details: nil)) }
       case "setStyle":
         if let args = call.arguments as? [String: Any] {
           if #available(iOS 13.0, *), let n = args["tint"] as? NSNumber {

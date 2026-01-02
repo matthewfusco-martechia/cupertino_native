@@ -499,17 +499,43 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> with PlatformView
       }
     }
 
-    await ch.invokeMethod('setItems', {
-      'labels': updLabels,
-      'sfSymbols': updSymbols,
-      'isDivider': updIsDivider,
-      'enabled': updEnabled,
-      'sfSymbolSizes': updSizes,
-      'sfSymbolColors': updColors,
-      'sfSymbolRenderingModes': updModes,
-      'sfSymbolPaletteColors': updPalettes,
-      'sfSymbolGradientEnabled': updGradients,
-    });
+    // Check if items actually changed before sending
+    if (!_areItemsEqual(widget.items, _lastItems)) {
+      await ch.invokeMethod('setItems', {
+        'labels': updLabels,
+        'sfSymbols': updSymbols,
+        'isDivider': updIsDivider,
+        'enabled': updEnabled,
+        'sfSymbolSizes': updSizes,
+        'sfSymbolColors': updColors,
+        'sfSymbolRenderingModes': updModes,
+        'sfSymbolPaletteColors': updPalettes,
+        'sfSymbolGradientEnabled': updGradients,
+      });
+      _lastItems = widget.items.toList();
+    }
+  }
+
+  List<CNPopupMenuEntry>? _lastItems;
+
+  bool _areItemsEqual(List<CNPopupMenuEntry> a, List<CNPopupMenuEntry>? b) {
+    if (b == null) return false;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final itemA = a[i];
+      final itemB = b[i];
+      if (itemA.runtimeType != itemB.runtimeType) return false;
+      if (itemA is CNPopupMenuItem && itemB is CNPopupMenuItem) {
+        if (itemA.label != itemB.label) return false;
+        if (itemA.enabled != itemB.enabled) return false;
+        if (itemA.icon?.name != itemB.icon?.name) return false;
+        if (itemA.icon?.size != itemB.icon?.size) return false;
+        if (itemA.icon?.color != itemB.icon?.color) return false;
+        // Deep check icon props if strictly needed, but basic props usually suffice
+      }
+      // Dividers are equal by type check
+    }
+    return true;
   }
 
   Future<void> _syncBrightnessIfNeeded() async {

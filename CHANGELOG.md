@@ -1,3 +1,8 @@
+## 0.1.13
+* **Fix**: Resolved `CNPopupMenuButton` regression causing scroll stutter (bridge spam fix).
+* **Performance**: Optimized `CNInput` to prevent redundant native calls.
+* **Fix/Feature**: Enabled dynamic updates for `CNSegmentedControl` (labels/icons can now change at runtime).
+
 ## 0.1.12
 * **Performance**: Implemented `PlatformViewGuard` to eliminate redundant native view recreation during rebuilds.
 * **Performance**: Added `active` parameter to all components to allow disabling native views when off-screen.

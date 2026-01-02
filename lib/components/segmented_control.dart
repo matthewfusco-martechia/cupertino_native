@@ -84,6 +84,8 @@ class _CNSegmentedControlState extends State<CNSegmentedControl> with PlatformVi
   bool? _lastEnabled;
   bool? _lastIsDark;
   int? _lastTint;
+  List<String>? _lastLabels;
+  List<String>? _lastSymbols;
   double? _intrinsicWidth;
 
   bool get _isDark => CupertinoTheme.of(context).brightness == Brightness.dark;
@@ -256,6 +258,8 @@ class _CNSegmentedControlState extends State<CNSegmentedControl> with PlatformVi
     _lastEnabled = widget.enabled;
     _lastIsDark = _isDark;
     _lastTint = resolveColorToArgb(widget.color, context);
+    _lastLabels = widget.labels;
+    _lastSymbols = widget.sfSymbols?.map((e) => e.name).toList();
   }
 
   Future<void> _syncPropsToNativeIfNeeded() async {
@@ -277,6 +281,72 @@ class _CNSegmentedControlState extends State<CNSegmentedControl> with PlatformVi
     if (_lastTint != tint && tint != null) {
       await channel.invokeMethod('setStyle', {'tint': tint});
       _lastTint = tint;
+    }
+
+    // Sync Items
+    final currentLabels = widget.labels;
+    final currentSymbols = widget.sfSymbols?.map((e) => e.name).toList();
+    
+    // Check for changes (length or content)
+    bool itemsChanged = false;
+    if (_lastLabels?.length != currentLabels.length) {
+      itemsChanged = true;
+    } else {
+      for (int i = 0; i < currentLabels.length; i++) {
+        if (_lastLabels![i] != currentLabels[i]) {
+          itemsChanged = true;
+          break;
+        }
+      }
+    }
+    if (!itemsChanged) {
+      if ((_lastSymbols == null && currentSymbols != null) || (_lastSymbols != null && currentSymbols == null)) {
+        itemsChanged = true;
+      } else if (_lastSymbols != null && currentSymbols != null) {
+        if (_lastSymbols!.length != currentSymbols.length) {
+          itemsChanged = true;
+        } else {
+          for (int i = 0; i < currentSymbols.length; i++) {
+            if (_lastSymbols![i] != currentSymbols[i]) {
+              itemsChanged = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (itemsChanged) {
+      await channel.invokeMethod('setItems', {
+        'labels': widget.labels,
+        if (widget.sfSymbols != null)
+          'sfSymbols': widget.sfSymbols!.map((e) => e.name).toList(),
+        if (widget.sfSymbols != null)
+          'sfSymbolSizes': widget.sfSymbols!.map((e) => e.size).toList(),
+        if (widget.sfSymbols != null)
+          'sfSymbolColors': widget.sfSymbols!
+              .map((e) => resolveColorToArgb(e.color, context))
+              .toList(),
+        if (widget.sfSymbols != null)
+          'sfSymbolPaletteColors': widget.sfSymbols!
+              .map(
+                (e) => (e.paletteColors ?? [])
+                    .map((c) => resolveColorToArgb(c, context))
+                    .toList(),
+              )
+              .toList(),
+        if (widget.sfSymbols != null)
+          'sfSymbolRenderingModes': widget.sfSymbols!
+              .map((e) => e.mode?.name)
+              .toList(),
+        if (widget.sfSymbols != null)
+          'sfSymbolGradientEnabled': widget.sfSymbols!
+              .map((e) => e.gradient)
+              .toList(),
+      });
+      _lastLabels = widget.labels;
+      _lastSymbols = currentSymbols;
+      _requestIntrinsicSize();
     }
   }
 

@@ -111,6 +111,9 @@ class CNInputState extends State<CNInput> with PlatformViewGuard<CNInput> {
   bool? _lastIsDark;
   String? _lastText;
   String? _lastPlaceholder;
+  bool? _lastEnabled;
+  bool? _lastSecure;
+  CNInputBorderStyle? _lastBorderStyle;
   late TextEditingController _controller;
   double _currentHeight = 44.0;
 
@@ -132,6 +135,9 @@ class CNInputState extends State<CNInput> with PlatformViewGuard<CNInput> {
     _controller = widget.controller ?? TextEditingController();
     _lastText = _controller.text;
     _lastPlaceholder = widget.placeholder;
+    _lastEnabled = widget.enabled;
+    _lastSecure = widget.isSecure;
+    _lastBorderStyle = widget.borderStyle;
     _currentHeight = widget.minHeight;
   }
 
@@ -311,6 +317,9 @@ class CNInputState extends State<CNInput> with PlatformViewGuard<CNInput> {
     _lastIsDark = _isDark;
     _lastText = _controller.text;
     _lastPlaceholder = widget.placeholder;
+    _lastEnabled = widget.enabled;
+    _lastSecure = widget.isSecure;
+    _lastBorderStyle = widget.borderStyle;
   }
 
   bool _isUpdatingFromNative = false;
@@ -377,15 +386,24 @@ class CNInputState extends State<CNInput> with PlatformViewGuard<CNInput> {
     }
 
     // Sync enabled state
-    await ch.invokeMethod('setEnabled', {'enabled': widget.enabled});
+    if (_lastEnabled != widget.enabled) {
+      await ch.invokeMethod('setEnabled', {'enabled': widget.enabled});
+      _lastEnabled = widget.enabled;
+    }
 
     // Sync secure mode
-    await ch.invokeMethod('setSecure', {'isSecure': widget.isSecure});
+    if (_lastSecure != widget.isSecure) {
+      await ch.invokeMethod('setSecure', {'isSecure': widget.isSecure});
+      _lastSecure = widget.isSecure;
+    }
 
     // Sync border style
-    await ch.invokeMethod('setBorderStyle', {
-      'borderStyle': widget.borderStyle.name,
-    });
+    if (_lastBorderStyle != widget.borderStyle) {
+      await ch.invokeMethod('setBorderStyle', {
+        'borderStyle': widget.borderStyle.name,
+      });
+      _lastBorderStyle = widget.borderStyle;
+    }
   }
 
   Future<void> _syncBrightnessIfNeeded() async {
