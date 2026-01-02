@@ -25,6 +25,8 @@ import 'demos/liquid_glass_message_input.dart';
 import 'demos/liquid_glass_search_text_field.dart';
 import 'demos/liquid_glass_two_tab_bar.dart';
 import 'demos/liquid_glass_segmented_control.dart';
+import 'demos/liquid_glass_demo.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -397,6 +399,20 @@ class HomePage extends StatelessWidget {
                   Navigator.of(context).push(
                     CupertinoPageRoute(
                       builder: (_) => const GlassEffectContainerDemoPage(),
+                    ),
+                  );
+                },
+              ),
+              CupertinoListTile(
+                title: const Text('Glass Perf: Native vs Shader'),
+                leading: CNIcon(
+                  symbol: CNSymbol('speedometer', color: accentColor),
+                ),
+                trailing: const CupertinoListTileChevron(),
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const LiquidGlassComparisonDemo(),
                     ),
                   );
                 },
