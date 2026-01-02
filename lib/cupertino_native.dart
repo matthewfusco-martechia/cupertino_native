@@ -2,6 +2,7 @@
 
 export 'cupertino_native_platform_interface.dart';
 export 'cupertino_native_method_channel.dart';
+export 'cupertino_native_config.dart';
 export 'components/slider.dart';
 export 'components/switch.dart';
 export 'components/segmented_control.dart';

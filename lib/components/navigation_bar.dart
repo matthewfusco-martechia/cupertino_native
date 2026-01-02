@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
+import '../channel/platform_view_guard.dart';
 import '../channel/params.dart';
+import '../cupertino_native_config.dart';
 import '../style/sf_symbol.dart';
 
 /// A button group for navigation bar.
@@ -120,6 +122,7 @@ class CNNavigationBar extends StatefulWidget {
     this.translucent = true,
     this.largeTitleDisplayMode = LargeTitleDisplayMode.automatic,
     this.onButtonPressed,
+    this.active = true,
   });
 
   /// Navigation bar title.
@@ -153,11 +156,14 @@ class CNNavigationBar extends StatefulWidget {
   final void Function(String groupType, int groupIndex, int buttonIndex)?
   onButtonPressed;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   State<CNNavigationBar> createState() => _CNNavigationBarState();
 }
 
-class _CNNavigationBarState extends State<CNNavigationBar> {
+class _CNNavigationBarState extends State<CNNavigationBar> with PlatformViewGuard<CNNavigationBar> {
   MethodChannel? _channel;
 
   bool? _lastIsDark;
@@ -194,10 +200,32 @@ class _CNNavigationBarState extends State<CNNavigationBar> {
   }
 
   @override
+  String computeConfigSignature() {
+    return 'stable';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+      if (!CupertinoNativeConfig.platformViewsEnabled) {
+          // Fallback for unsupported platforms (reused logic)
+          return _buildFallback(context);
+      }
+      return SizedBox(height: widget.height);
+    }
+    
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
       // Fallback for unsupported platforms
+      return _buildFallback(context);
+    }
+
+    final platformView = getPlatformViewCached('CupertinoNativeNavigationBar');
+
+    return SizedBox(height: widget.height, child: platformView);
+  }
+
+  Widget _buildFallback(BuildContext context) {
       return Container(
         height: widget.height,
         decoration: BoxDecoration(
@@ -242,8 +270,10 @@ class _CNNavigationBarState extends State<CNNavigationBar> {
           ],
         ),
       );
-    }
+  }
 
+  @override
+  Widget buildPlatformView() {
     const viewType = 'CupertinoNativeNavigationBar';
     final creationParams = <String, dynamic>{
       if (widget.title != null) 'title': widget.title,
@@ -266,24 +296,21 @@ class _CNNavigationBarState extends State<CNNavigationBar> {
           .toList(),
     };
 
-    Widget platformView;
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      platformView = UiKitView(
+      return UiKitView(
         viewType: viewType,
         creationParamsCodec: const StandardMessageCodec(),
         creationParams: creationParams,
         onPlatformViewCreated: _onPlatformViewCreated,
       );
     } else {
-      platformView = AppKitView(
+      return AppKitView(
         viewType: viewType,
         creationParamsCodec: const StandardMessageCodec(),
         creationParams: creationParams,
         onPlatformViewCreated: _onPlatformViewCreated,
       );
     }
-
-    return SizedBox(height: widget.height, child: platformView);
   }
 
   void _onPlatformViewCreated(int id) {

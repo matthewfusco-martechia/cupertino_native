@@ -3,7 +3,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
+import '../channel/platform_view_guard.dart';
 import '../channel/params.dart';
+import '../cupertino_native_config.dart';
 
 /// Controller for a [CNSlider] allowing imperative changes to the native
 /// NSSlider/UISlider instance.
@@ -63,6 +65,7 @@ class CNSlider extends StatefulWidget {
     this.trackColor,
     this.trackBackgroundColor,
     this.step,
+    this.active = true,
   });
 
   /// Current slider value.
@@ -101,11 +104,14 @@ class CNSlider extends StatefulWidget {
   /// Optional step interval for discrete values.
   final double? step;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   State<CNSlider> createState() => _CNSliderState();
 }
 
-class _CNSliderState extends State<CNSlider> {
+class _CNSliderState extends State<CNSlider> with PlatformViewGuard<CNSlider> {
   MethodChannel? _channel;
 
   double? _lastValue;
@@ -156,7 +162,28 @@ class _CNSliderState extends State<CNSlider> {
   }
 
   @override
+  String computeConfigSignature() {
+    return 'stable';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+      if (!CupertinoNativeConfig.platformViewsEnabled) {
+        return SizedBox(
+         height: widget.height,
+         width: double.infinity,
+         child: Slider(
+           value: widget.value.clamp(widget.min, widget.max).toDouble(),
+           min: widget.min,
+           max: widget.max,
+           onChanged: widget.enabled ? widget.onChanged : null,
+         ),
+       );
+      }
+      return SizedBox(height: widget.height);
+    }
+
     // Fallback to Flutter Slider on unsupported platforms.
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
@@ -172,6 +199,17 @@ class _CNSliderState extends State<CNSlider> {
       );
     }
 
+    final platformView = getPlatformViewCached('CupertinoNativeSlider');
+
+    return SizedBox(
+      height: widget.height,
+      width: double.infinity,
+      child: platformView,
+    );
+  }
+
+  @override
+  Widget buildPlatformView() {
     const viewType = 'CupertinoNativeSlider';
     final creationParams = <String, dynamic>{
       'min': widget.min,
@@ -190,44 +228,35 @@ class _CNSliderState extends State<CNSlider> {
     };
 
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return SizedBox(
-        height: widget.height,
-        width: double.infinity,
-        child: UiKitView(
-          viewType: viewType,
-          creationParamsCodec: const StandardMessageCodec(),
-          creationParams: creationParams,
-          onPlatformViewCreated: _onPlatformViewCreated,
-          // Forward horizontal drags and taps to the native slider so it
-          // works correctly inside Flutter scroll views.
-          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-            Factory<HorizontalDragGestureRecognizer>(
-              () => HorizontalDragGestureRecognizer(),
-            ),
-            Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-          },
-        ),
-      );
-    }
-
-    // macOS
-    return SizedBox(
-      height: widget.height,
-      width: double.infinity,
-      // AppKitView is available on macOS to host NSView platform views.
-      child: AppKitView(
+      return UiKitView(
         viewType: viewType,
         creationParamsCodec: const StandardMessageCodec(),
         creationParams: creationParams,
         onPlatformViewCreated: _onPlatformViewCreated,
-        // Mirror iOS behavior: allow horizontal drag/tap gestures through.
+        // Forward horizontal drags and taps to the native slider so it
+        // works correctly inside Flutter scroll views.
         gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
           Factory<HorizontalDragGestureRecognizer>(
             () => HorizontalDragGestureRecognizer(),
           ),
           Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
         },
-      ),
+      );
+    }
+
+    // macOS
+    return AppKitView(
+      viewType: viewType,
+      creationParamsCodec: const StandardMessageCodec(),
+      creationParams: creationParams,
+      onPlatformViewCreated: _onPlatformViewCreated,
+      // Mirror iOS behavior: allow horizontal drag/tap gestures through.
+      gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+        Factory<HorizontalDragGestureRecognizer>(
+          () => HorizontalDragGestureRecognizer(),
+        ),
+        Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+      },
     );
   }
 

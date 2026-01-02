@@ -11,12 +11,15 @@ import 'package:flutter/material.dart';
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:cupertino_native/cupertino_native.dart';
 
-/// A native two-tab bar with liquid glass styling.
+/// A FlutterFlow-compatible liquid glass tab bar.
 ///
-/// Uses the CNTabBar component for pixel-perfect iOS/macOS tab bar appearance
-/// with swipe gesture support for sliding between tabs.
+/// Uses component state to manage the current tab index, making it
+/// compatible with FlutterFlow's state management (no TabController needed).
+/// You can use this with a PageView or conditionally render content based
+/// on the currentIndex returned in onTabChanged.
 class LiquidGlassTwoTabBar extends StatefulWidget {
   const LiquidGlassTwoTabBar({
     super.key,
@@ -27,20 +30,32 @@ class LiquidGlassTwoTabBar extends StatefulWidget {
     this.tintColor,
     required this.firstTabLabel,
     required this.secondTabLabel,
-    required this.firstTabIcon,
-    required this.secondTabIcon,
-    required this.shrinkCentered,
+    this.firstTabIcon,
+    this.secondTabIcon,
+    this.shrinkCentered = true,
   });
 
   final double? width;
   final double? height;
   final int initialIndex;
+  
+  /// Called when the user taps or slides to a different tab.
+  /// Use this callback to update FlutterFlow component/page state.
   final Future Function(int? index) onTabChanged;
+  
   final Color? tintColor;
   final String firstTabLabel;
   final String secondTabLabel;
-  final String firstTabIcon;
-  final String secondTabIcon;
+  
+  /// Optional SF Symbol name for the first tab icon.
+  /// Example: 'square.grid.2x2'
+  final String? firstTabIcon;
+  
+  /// Optional SF Symbol name for the second tab icon.
+  /// Example: 'arrow.down.circle.fill'
+  final String? secondTabIcon;
+  
+  /// If true, centers and shrinks the tab bar to fit content.
   final bool shrinkCentered;
 
   @override
@@ -53,40 +68,53 @@ class _LiquidGlassTwoTabBarState extends State<LiquidGlassTwoTabBar> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex;
+    _currentIndex = widget.initialIndex.clamp(0, 1);
   }
 
   @override
   void didUpdateWidget(covariant LiquidGlassTwoTabBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update if initialIndex changes from parent
+    // Sync with parent state if initialIndex changes
     if (widget.initialIndex != oldWidget.initialIndex) {
-      setState(() => _currentIndex = widget.initialIndex);
+      final newIndex = widget.initialIndex.clamp(0, 1);
+      if (newIndex != _currentIndex) {
+        setState(() => _currentIndex = newIndex);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Build items with optional icons
+    final items = <CNTabBarItem>[
+      CNTabBarItem(
+        label: widget.firstTabLabel,
+        icon: widget.firstTabIcon != null && widget.firstTabIcon!.isNotEmpty
+            ? CNSymbol(widget.firstTabIcon!)
+            : null,
+      ),
+      CNTabBarItem(
+        label: widget.secondTabLabel,
+        icon: widget.secondTabIcon != null && widget.secondTabIcon!.isNotEmpty
+            ? CNSymbol(widget.secondTabIcon!)
+            : null,
+      ),
+    ];
+
     return SizedBox(
       width: widget.width,
-      height: widget.height ?? 50,
+      height: widget.height ?? 90,
       child: CNTabBar(
-        items: [
-          CNTabBarItem(
-            label: widget.firstTabLabel,
-            icon: CNSymbol(widget.firstTabIcon),
-          ),
-          CNTabBarItem(
-            label: widget.secondTabLabel,
-            icon: CNSymbol(widget.secondTabIcon),
-          ),
-        ],
+        items: items,
         currentIndex: _currentIndex,
         tint: widget.tintColor ?? CupertinoTheme.of(context).primaryColor,
         shrinkCentered: widget.shrinkCentered,
-        onTap: (index) {
-          setState(() => _currentIndex = index);
-          widget.onTabChanged(index);
+        onTap: (index) async {
+          if (index != _currentIndex) {
+            setState(() => _currentIndex = index);
+            HapticFeedback.selectionClick();
+            await widget.onTabChanged(index);
+          }
         },
       ),
     );

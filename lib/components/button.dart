@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 
+import '../channel/platform_view_guard.dart';
 import '../channel/params.dart';
+import '../cupertino_native_config.dart';
 import '../style/sf_symbol.dart';
 import '../style/button_style.dart';
 
@@ -22,6 +24,7 @@ class CNButton extends StatefulWidget {
     this.height = 32.0,
     this.shrinkWrap = false,
     this.style = CNButtonStyle.plain,
+    this.active = true,
   }) : icon = null,
        width = null,
        round = false;
@@ -35,6 +38,7 @@ class CNButton extends StatefulWidget {
     this.tint,
     double size = 44.0,
     this.style = CNButtonStyle.glass,
+    this.active = true,
   }) : label = null,
        round = true,
        width = size,
@@ -72,11 +76,14 @@ class CNButton extends StatefulWidget {
   /// Whether this instance is configured as the icon variant.
   bool get isIcon => icon != null;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   State<CNButton> createState() => _CNButtonState();
 }
 
-class _CNButtonState extends State<CNButton> {
+class _CNButtonState extends State<CNButton> with PlatformViewGuard<CNButton> {
   MethodChannel? _channel;
   bool? _lastIsDark;
   int? _lastTint;
@@ -113,7 +120,42 @@ class _CNButtonState extends State<CNButton> {
   }
 
   @override
+  String computeConfigSignature() {
+    // Signature based on type-changing props.
+    return '${widget.label}|${widget.icon?.name}|${widget.style.name}|${widget.round}|${widget.isIcon}';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+      if (!CupertinoNativeConfig.platformViewsEnabled) {
+          // Fallback Flutter implementation
+          return SizedBox(
+            height: widget.height,
+            width: widget.isIcon && widget.round
+                ? (widget.width ?? widget.height)
+                : null,
+            child: CupertinoButton(
+              padding: widget.isIcon
+                  ? const EdgeInsets.all(4)
+                  : const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              onPressed: (widget.enabled && widget.onPressed != null)
+                  ? widget.onPressed
+                  : null,
+              child: widget.isIcon
+                  ? Icon(CupertinoIcons.ellipsis, size: widget.icon?.size)
+                  : Text(widget.label ?? ''),
+            ),
+          );
+      }
+      return SizedBox(
+        height: widget.height,
+        width: widget.isIcon && widget.round
+            ? (widget.width ?? widget.height)
+            : null,
+      );
+    }
+
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
       // Fallback Flutter implementation
@@ -136,49 +178,7 @@ class _CNButtonState extends State<CNButton> {
       );
     }
 
-    const viewType = 'CupertinoNativeButton';
-
-    final creationParams = <String, dynamic>{
-      if (widget.label != null) 'buttonTitle': widget.label,
-      if (widget.icon != null) 'buttonIconName': widget.icon!.name,
-      if (widget.icon?.size != null) 'buttonIconSize': widget.icon!.size,
-      if (widget.icon?.color != null)
-        'buttonIconColor': resolveColorToArgb(widget.icon!.color, context),
-      if (widget.icon?.mode != null)
-        'buttonIconRenderingMode': widget.icon!.mode!.name,
-      if (widget.icon?.paletteColors != null)
-        'buttonIconPaletteColors': widget.icon!.paletteColors!
-            .map((c) => resolveColorToArgb(c, context))
-            .toList(),
-      if (widget.icon?.gradient != null)
-        'buttonIconGradientEnabled': widget.icon!.gradient,
-      if (widget.isIcon) 'round': true,
-      'buttonStyle': widget.style.name,
-      'enabled': (widget.enabled && widget.onPressed != null),
-      'isDark': _isDark,
-      'style': encodeStyle(context, tint: _effectiveTint),
-    };
-
-    final platformView = defaultTargetPlatform == TargetPlatform.iOS
-        ? UiKitView(
-            viewType: viewType,
-            creationParams: creationParams,
-            creationParamsCodec: const StandardMessageCodec(),
-            onPlatformViewCreated: _onCreated,
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              // Forward taps to native; let Flutter keep drags for scrolling.
-              Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-            },
-          )
-        : AppKitView(
-            viewType: viewType,
-            creationParams: creationParams,
-            creationParamsCodec: const StandardMessageCodec(),
-            onPlatformViewCreated: _onCreated,
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-            },
-          );
+    final platformView = getPlatformViewCached('CupertinoNativeButton');
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -220,6 +220,55 @@ class _CNButtonState extends State<CNButton> {
         );
       },
     );
+  }
+
+  @override
+  Widget buildPlatformView() {
+    const viewType = 'CupertinoNativeButton';
+
+    final creationParams = <String, dynamic>{
+      if (widget.label != null) 'buttonTitle': widget.label,
+      if (widget.icon != null) 'buttonIconName': widget.icon!.name,
+      if (widget.icon?.size != null) 'buttonIconSize': widget.icon!.size,
+      if (widget.icon?.color != null)
+        'buttonIconColor': resolveColorToArgb(widget.icon!.color, context),
+      if (widget.icon?.mode != null)
+        'buttonIconRenderingMode': widget.icon!.mode!.name,
+      if (widget.icon?.paletteColors != null)
+        'buttonIconPaletteColors': widget.icon!.paletteColors!
+            .map((c) => resolveColorToArgb(c, context))
+            .toList(),
+      if (widget.icon?.gradient != null)
+        'buttonIconGradientEnabled': widget.icon!.gradient,
+      if (widget.isIcon) 'round': true,
+      'buttonStyle': widget.style.name,
+      'enabled': (widget.enabled && widget.onPressed != null),
+      'isDark': _isDark,
+      'style': encodeStyle(context, tint: _effectiveTint),
+    };
+
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return UiKitView(
+        viewType: viewType,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _onCreated,
+        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+          // Forward taps to native; let Flutter keep drags for scrolling.
+          Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+        },
+      );
+    } else {
+      return AppKitView(
+        viewType: viewType,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _onCreated,
+        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+          Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+        },
+      );
+    }
   }
 
   void _onCreated(int id) {

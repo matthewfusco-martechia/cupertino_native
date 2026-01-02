@@ -37,6 +37,7 @@ class LiquidGlassTextField extends StatefulWidget {
     this.placeholderIconName = 'mic',
     this.placeholderIconColor,
     this.onPlaceholderIconPressed,
+    this.active = true,
   });
 
   /// Controls the text being edited.
@@ -96,6 +97,9 @@ class LiquidGlassTextField extends StatefulWidget {
 
   /// Callback when the placeholder icon is pressed.
   final VoidCallback? onPlaceholderIconPressed;
+
+  /// Whether the native platform view components are active.
+  final bool active;
 
   @override
   State<LiquidGlassTextField> createState() => LiquidGlassTextFieldState();
@@ -196,6 +200,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
         glassStyle: widget.glassStyle,
         tint: widget.tint,
         cornerRadius: effectiveCornerRadius,
+        active: widget.active,
         child: Row(
           crossAxisAlignment: _currentHeight > widget.minHeight 
               ? CrossAxisAlignment.end 
@@ -232,6 +237,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                   maxLines: widget.maxLines,
                   keyboardType: TextInputType.multiline,
                   textInputAction: TextInputAction.newline,
+                  active: widget.active,
                   onHeightChanged: (height) {
                     if (mounted) {
                       setState(() {
@@ -263,6 +269,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                   style: CNButtonStyle.prominentGlass,
                   tint: effectiveTrailingColor,
                   onPressed: _handleSubmit,
+                  active: widget.active,
                       )
                     // Placeholder icon when empty
                     : CNButton.icon(
@@ -276,6 +283,7 @@ class LiquidGlassTextFieldState extends State<LiquidGlassTextField> {
                         style: CNButtonStyle.glass,
                         tint: widget.tint,
                         onPressed: widget.onPlaceholderIconPressed,
+                        active: widget.active,
                 ),
               ),
             ],

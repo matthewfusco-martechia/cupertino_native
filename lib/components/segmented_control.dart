@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
+import '../channel/platform_view_guard.dart';
 import '../channel/params.dart';
+import '../cupertino_native_config.dart';
 import '../style/sf_symbol.dart';
 
 /// A Cupertino-native segmented control.
@@ -26,6 +28,7 @@ class CNSegmentedControl extends StatefulWidget {
     this.iconPaletteColors,
     this.iconGradientEnabled,
     this.iconRenderingMode,
+    this.active = true,
   });
 
   /// Segment labels to display, in order.
@@ -67,11 +70,14 @@ class CNSegmentedControl extends StatefulWidget {
   /// Global icon rendering mode.
   final CNSymbolRenderingMode? iconRenderingMode;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   State<CNSegmentedControl> createState() => _CNSegmentedControlState();
 }
 
-class _CNSegmentedControlState extends State<CNSegmentedControl> {
+class _CNSegmentedControlState extends State<CNSegmentedControl> with PlatformViewGuard<CNSegmentedControl> {
   MethodChannel? _channel;
 
   int? _lastSelected;
@@ -101,7 +107,31 @@ class _CNSegmentedControlState extends State<CNSegmentedControl> {
   }
 
   @override
+  String computeConfigSignature() {
+    return 'stable';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+      if (!CupertinoNativeConfig.platformViewsEnabled) {
+          return SizedBox(
+            height: widget.height,
+            child: CupertinoSegmentedControl<int>(
+              children: {
+                for (var i = 0; i < widget.labels.length; i++)
+                  i: Text(widget.labels[i]),
+              },
+              groupValue: widget.selectedIndex,
+              onValueChanged: widget.enabled
+                  ? (i) => widget.onValueChanged(i)
+                  : (_) {},
+            ),
+          );
+      }
+      return SizedBox(height: widget.height);
+    }
+
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
       return SizedBox(
@@ -119,6 +149,24 @@ class _CNSegmentedControlState extends State<CNSegmentedControl> {
       );
     }
 
+    final platformView = getPlatformViewCached('CupertinoNativeSegmentedControl');
+
+    if (widget.shrinkWrap) {
+      final width = _intrinsicWidth;
+      return Center(
+        child: SizedBox(
+          height: widget.height,
+          width: width, // if null, stretches initially until measured
+          child: platformView,
+        ),
+      );
+    }
+
+    return SizedBox(height: widget.height, child: platformView);
+  }
+
+  @override
+  Widget buildPlatformView() {
     const viewType = 'CupertinoNativeSegmentedControl';
     final creationParams = <String, dynamic>{
       'labels': widget.labels,
@@ -165,35 +213,21 @@ class _CNSegmentedControlState extends State<CNSegmentedControl> {
             .toList(),
     };
 
-    Widget platformView;
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      platformView = UiKitView(
+      return UiKitView(
         viewType: viewType,
         creationParamsCodec: const StandardMessageCodec(),
         creationParams: creationParams,
         onPlatformViewCreated: _onPlatformViewCreated,
       );
     } else {
-      platformView = AppKitView(
+      return AppKitView(
         viewType: viewType,
         creationParamsCodec: const StandardMessageCodec(),
         creationParams: creationParams,
         onPlatformViewCreated: _onPlatformViewCreated,
       );
     }
-
-    if (widget.shrinkWrap) {
-      final width = _intrinsicWidth;
-      return Center(
-        child: SizedBox(
-          height: widget.height,
-          width: width, // if null, stretches initially until measured
-          child: platformView,
-        ),
-      );
-    }
-
-    return SizedBox(height: widget.height, child: platformView);
   }
 
   void _onPlatformViewCreated(int id) {

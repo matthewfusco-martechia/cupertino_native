@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 
+import '../channel/platform_view_guard.dart';
 import '../channel/params.dart';
+import '../cupertino_native_config.dart';
 
 /// A Cupertino-native text input field.
 ///
@@ -34,6 +36,7 @@ class CNInput extends StatefulWidget {
     this.onSubmitted,
     this.onFocusChanged,
     this.onHeightChanged,
+    this.active = true,
   });
 
   /// Controls the text being edited.
@@ -96,11 +99,14 @@ class CNInput extends StatefulWidget {
   /// Called when the content height changes (for multiline inputs).
   final ValueChanged<double>? onHeightChanged;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   State<CNInput> createState() => CNInputState();
 }
 
-class CNInputState extends State<CNInput> {
+class CNInputState extends State<CNInput> with PlatformViewGuard<CNInput> {
   MethodChannel? _channel;
   bool? _lastIsDark;
   String? _lastText;
@@ -166,7 +172,47 @@ class CNInputState extends State<CNInput> {
   }
 
   @override
+  String computeConfigSignature() {
+    return '${widget.placeholder}|${widget.borderStyle.name}|${widget.maxLines}|${widget.fontSize}|${widget.isSecure}|${widget.enabled}|${widget.keyboardType}|${widget.textInputAction}|${widget.autocorrect}|${widget.clearButtonMode.name}';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+      // Inactive or disabled
+      if (!CupertinoNativeConfig.platformViewsEnabled) {
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: widget.minHeight,
+            maxHeight: _calculateMaxHeight(),
+          ),
+          child: CupertinoTextField(
+            controller: _controller,
+            placeholder: widget.placeholder,
+            obscureText: widget.isSecure,
+            keyboardType: widget.keyboardType,
+            textInputAction: widget.textInputAction,
+            autocorrect: widget.autocorrect,
+            enabled: widget.enabled,
+            maxLines: widget.maxLines,
+            style: TextStyle(fontSize: widget.fontSize, color: widget.textColor),
+            decoration: BoxDecoration(
+              color: widget.backgroundColor,
+              borderRadius: BorderRadius.circular(8),
+              border: widget.borderStyle == CNInputBorderStyle.none
+                  ? null
+                  : Border.all(color: CupertinoColors.systemGrey4),
+            ),
+            onChanged: widget.onChanged,
+            onSubmitted: widget.onSubmitted,
+          ),
+        );
+      }
+      return SizedBox(
+        height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+      );
+    }
+    
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
       // Fallback Flutter implementation
@@ -198,6 +244,18 @@ class CNInputState extends State<CNInput> {
       );
     }
 
+    final platformView = getPlatformViewCached('CupertinoNativeInput');
+
+    // Use a simple SizedBox - no animation to avoid timing issues
+    // The native UITextView handles its own scrolling
+    return SizedBox(
+      height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
+      child: platformView,
+    );
+  }
+
+  @override
+  Widget buildPlatformView() {
     const viewType = 'CupertinoNativeInput';
 
     final creationParams = <String, dynamic>{
@@ -223,32 +281,27 @@ class CNInputState extends State<CNInput> {
       'isDark': _isDark,
     };
 
-    final platformView = defaultTargetPlatform == TargetPlatform.iOS
-        ? UiKitView(
-            viewType: viewType,
-            creationParams: creationParams,
-            creationParamsCodec: const StandardMessageCodec(),
-            onPlatformViewCreated: _onCreated,
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-            },
-          )
-        : AppKitView(
-            viewType: viewType,
-            creationParams: creationParams,
-            creationParamsCodec: const StandardMessageCodec(),
-            onPlatformViewCreated: _onCreated,
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-            },
-          );
-
-    // Use a simple SizedBox - no animation to avoid timing issues
-    // The native UITextView handles its own scrolling
-    return SizedBox(
-      height: _currentHeight.clamp(widget.minHeight, _calculateMaxHeight()),
-      child: platformView,
-    );
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return UiKitView(
+        viewType: viewType,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _onCreated,
+        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+          Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+        },
+      );
+    } else {
+      return AppKitView(
+        viewType: viewType,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _onCreated,
+        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+          Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+        },
+      );
+    }
   }
 
   void _onCreated(int id) {

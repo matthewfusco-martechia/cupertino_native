@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 
+import '../channel/platform_view_guard.dart';
 import '../channel/params.dart';
+import '../cupertino_native_config.dart';
 import '../style/sf_symbol.dart';
 import '../style/button_style.dart';
 
@@ -50,6 +52,7 @@ class CNPopupMenuButton extends StatefulWidget {
     this.height = 32.0,
     this.shrinkWrap = false,
     this.buttonStyle = CNButtonStyle.plain,
+    this.active = true,
   }) : buttonIcon = null,
        width = null,
        round = false;
@@ -63,6 +66,7 @@ class CNPopupMenuButton extends StatefulWidget {
     this.tint,
     double size = 44.0, // button diameter (width = height)
     this.buttonStyle = CNButtonStyle.glass,
+    this.active = true,
   }) : buttonLabel = null,
        round = true,
        width = size,
@@ -98,6 +102,9 @@ class CNPopupMenuButton extends StatefulWidget {
   /// Visual style to apply to the button.
   final CNButtonStyle buttonStyle;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   /// Whether this instance is configured as an icon button variant.
   bool get isIconButton => buttonIcon != null;
 
@@ -105,7 +112,7 @@ class CNPopupMenuButton extends StatefulWidget {
   State<CNPopupMenuButton> createState() => _CNPopupMenuButtonState();
 }
 
-class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
+class _CNPopupMenuButtonState extends State<CNPopupMenuButton> with PlatformViewGuard<CNPopupMenuButton> {
   MethodChannel? _channel;
   bool? _lastIsDark;
   int? _lastTint;
@@ -141,10 +148,77 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
   }
 
   @override
+  String computeConfigSignature() {
+    return 'stable';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+      if (!CupertinoNativeConfig.platformViewsEnabled) {
+         // Fallback logic reused
+         return _buildFallback(context);
+      }
+      return SizedBox(
+        height: widget.height,
+        width: widget.isIconButton && widget.round
+          ? (widget.width ?? widget.height)
+          : null, // Basic layout preservation
+      );
+    }
+    
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
-      // Fallback Flutter implementation
+      return _buildFallback(context);
+    }
+
+    final platformView = getPlatformViewCached('CupertinoNativePopupMenuButton');
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final hasBoundedWidth = constraints.hasBoundedWidth;
+        // If shrinkWrap or width is unbounded (e.g. inside a Row), prefer intrinsic width.
+        final preferIntrinsic = widget.shrinkWrap || !hasBoundedWidth;
+        double? width;
+        if (widget.isIconButton) {
+          // Fixed circle size for icon buttons
+          width = widget.width ?? widget.height;
+        } else if (preferIntrinsic) {
+          width = _intrinsicWidth ?? 80.0;
+        }
+        return Listener(
+          onPointerDown: (e) {
+            _downPosition = e.position;
+            _setPressed(true);
+          },
+          onPointerMove: (e) {
+            final start = _downPosition;
+            if (start != null && _pressed) {
+              final moved = (e.position - start).distance;
+              if (moved > kTouchSlop) {
+                _setPressed(false);
+              }
+            }
+          },
+          onPointerUp: (_) {
+            _setPressed(false);
+            _downPosition = null;
+          },
+          onPointerCancel: (_) {
+            _setPressed(false);
+            _downPosition = null;
+          },
+          child: SizedBox(
+            height: widget.height,
+            width: width,
+            child: platformView,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFallback(BuildContext context) {
       return SizedBox(
         height: widget.height,
         width: widget.isIconButton && widget.round
@@ -189,8 +263,10 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
               : Text(widget.buttonLabel ?? ''),
         ),
       );
-    }
+  }
 
+  @override
+  Widget buildPlatformView() {
     const viewType = 'CupertinoNativePopupMenuButton';
 
     // Flatten entries into parallel arrays for the platform view.
@@ -264,68 +340,32 @@ class _CNPopupMenuButtonState extends State<CNPopupMenuButton> {
         'buttonIconGradientEnabled': widget.buttonIcon!.gradient,
     };
 
-    final platformView = defaultTargetPlatform == TargetPlatform.iOS
-        ? UiKitView(
-            viewType: viewType,
-            creationParams: creationParams,
-            creationParamsCodec: const StandardMessageCodec(),
-            onPlatformViewCreated: _onCreated,
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-            },
-          )
-        : AppKitView(
-            viewType: viewType,
-            creationParams: creationParams,
-            creationParamsCodec: const StandardMessageCodec(),
-            onPlatformViewCreated: _onCreated,
-            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-              Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-            },
-          );
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return UiKitView(
+        viewType: viewType,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _onPlatformViewCreated,
+        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+          Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+        },
+      );
+    } else {
+      return AppKitView(
+        viewType: viewType,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _onPlatformViewCreated,
+        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+          Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+        },
+      );
+    }
+  }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final hasBoundedWidth = constraints.hasBoundedWidth;
-        // If shrinkWrap or width is unbounded (e.g. inside a Row), prefer intrinsic width.
-        final preferIntrinsic = widget.shrinkWrap || !hasBoundedWidth;
-        double? width;
-        if (widget.isIconButton) {
-          // Fixed circle size for icon buttons
-          width = widget.width ?? widget.height;
-        } else if (preferIntrinsic) {
-          width = _intrinsicWidth ?? 80.0;
-        }
-        return Listener(
-          onPointerDown: (e) {
-            _downPosition = e.position;
-            _setPressed(true);
-          },
-          onPointerMove: (e) {
-            final start = _downPosition;
-            if (start != null && _pressed) {
-              final moved = (e.position - start).distance;
-              if (moved > kTouchSlop) {
-                _setPressed(false);
-              }
-            }
-          },
-          onPointerUp: (_) {
-            _setPressed(false);
-            _downPosition = null;
-          },
-          onPointerCancel: (_) {
-            _setPressed(false);
-            _downPosition = null;
-          },
-          child: SizedBox(
-            height: widget.height,
-            width: width,
-            child: platformView,
-          ),
-        );
-      },
-    );
+  // Renamed from _onCreated for consistency with mixin expectation
+  void _onPlatformViewCreated(int id) {
+    _onCreated(id);
   }
 
   void _onCreated(int id) {

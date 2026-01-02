@@ -2,7 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../channel/platform_view_guard.dart';
 import '../channel/params.dart';
+import '../cupertino_native_config.dart';
 import '../style/sf_symbol.dart';
 
 /// Immutable data describing a single tab bar item.
@@ -33,6 +35,7 @@ class CNTabBar extends StatefulWidget {
     this.rightCount = 1,
     this.shrinkCentered = true,
     this.splitSpacing = 8.0,
+    this.active = true,
   });
 
   /// Items to display in the tab bar.
@@ -67,11 +70,14 @@ class CNTabBar extends StatefulWidget {
   /// Gap between left/right halves when split.
   final double splitSpacing; // gap between left/right halves when split
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   State<CNTabBar> createState() => _CNTabBarState();
 }
 
-class _CNTabBarState extends State<CNTabBar> {
+class _CNTabBarState extends State<CNTabBar> with PlatformViewGuard<CNTabBar> {
   MethodChannel? _channel;
   int? _lastIndex;
   int? _lastTint;
@@ -102,10 +108,42 @@ class _CNTabBarState extends State<CNTabBar> {
   }
 
   @override
+  String computeConfigSignature() {
+    // Return a constant signature to avoid recreation.
+    // All updates are handled via MethodChannel in didUpdateWidget.
+    return 'stable';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+      // Return placeholder when inactive or disabled
+      final h = widget.height ?? _intrinsicHeight ?? 50.0;
+      if (!CupertinoNativeConfig.platformViewsEnabled) {
+        return SizedBox(
+          height: h,
+          child: CupertinoTabBar(
+            items: [
+              for (final item in widget.items)
+                BottomNavigationBarItem(
+                  icon: Icon(CupertinoIcons.circle),
+                  label: item.label,
+                ),
+            ],
+            currentIndex: widget.currentIndex,
+            onTap: widget.onTap,
+            backgroundColor: widget.backgroundColor,
+            inactiveColor: CupertinoColors.inactiveGray,
+            activeColor: widget.tint ?? CupertinoTheme.of(context).primaryColor,
+          ),
+        );
+      }
+      return SizedBox(height: h); 
+    }
+
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
-      // Simple Flutter fallback using CupertinoTabBar for non-Apple platforms.
+      // Simple Flutter fallback
       return SizedBox(
         height: widget.height,
         child: CupertinoTabBar(
@@ -125,6 +163,19 @@ class _CNTabBarState extends State<CNTabBar> {
       );
     }
 
+    // Use cached platform view
+    final platformView = getPlatformViewCached('CupertinoNativeTabBar');
+
+    final h = widget.height ?? _intrinsicHeight ?? 50.0;
+    if (!widget.split && widget.shrinkCentered) {
+      final w = _intrinsicWidth;
+      return SizedBox(height: h, width: w, child: platformView);
+    }
+    return SizedBox(height: h, child: platformView);
+  }
+
+  @override
+  Widget buildPlatformView() {
     final labels = widget.items.map((e) => e.label ?? '').toList();
     final symbols = widget.items.map((e) => e.icon?.name ?? '').toList();
     final sizes = widget.items
@@ -155,26 +206,21 @@ class _CNTabBarState extends State<CNTabBar> {
     };
 
     final viewType = 'CupertinoNativeTabBar';
-    final platformView = defaultTargetPlatform == TargetPlatform.iOS
-        ? UiKitView(
-            viewType: viewType,
-            creationParams: creationParams,
-            creationParamsCodec: const StandardMessageCodec(),
-            onPlatformViewCreated: _onCreated,
-          )
-        : AppKitView(
-            viewType: viewType,
-            creationParams: creationParams,
-            creationParamsCodec: const StandardMessageCodec(),
-            onPlatformViewCreated: _onCreated,
-          );
-
-    final h = widget.height ?? _intrinsicHeight ?? 50.0;
-    if (!widget.split && widget.shrinkCentered) {
-      final w = _intrinsicWidth;
-      return SizedBox(height: h, width: w, child: platformView);
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return UiKitView(
+        viewType: viewType,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _onCreated,
+      );
+    } else {
+      return AppKitView(
+        viewType: viewType,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _onCreated,
+      );
     }
-    return SizedBox(height: h, child: platformView);
   }
 
   void _onCreated(int id) {

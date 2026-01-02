@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
+import '../channel/platform_view_guard.dart';
+import '../cupertino_native_config.dart';
+
 /// Enum for glass effect styles.
 enum CNGlassStyle {
   /// Regular glass style.
@@ -43,6 +46,7 @@ class CNGlassEffectContainer extends StatelessWidget {
     this.onTap,
     this.width = double.infinity,
     this.height = double.infinity,
+    this.active = true,
   });
 
   /// The child widget.
@@ -69,6 +73,9 @@ class CNGlassEffectContainer extends StatelessWidget {
   /// Height.
   final double height;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -85,6 +92,7 @@ class CNGlassEffectContainer extends StatelessWidget {
             onTap: onTap,
             width: double.infinity,
             height: double.infinity,
+            active: active,
             child: Container(), // Empty container
           ),
           Positioned.fill(child: child),
@@ -132,6 +140,7 @@ class CNGlassEffectContainerInternal extends StatefulWidget {
     this.onTap,
     this.width,
     this.height,
+    this.active = true,
   });
 
   /// The child widget (typically empty).
@@ -158,13 +167,17 @@ class CNGlassEffectContainerInternal extends StatefulWidget {
   /// Height.
   final double? height;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   State<CNGlassEffectContainerInternal> createState() =>
       _CNGlassEffectContainerState();
 }
 
 class _CNGlassEffectContainerState
-    extends State<CNGlassEffectContainerInternal> {
+    extends State<CNGlassEffectContainerInternal>
+    with PlatformViewGuard<CNGlassEffectContainerInternal> {
   MethodChannel? _channel;
 
   CNGlassStyle? _lastGlassStyle;
@@ -193,7 +206,41 @@ class _CNGlassEffectContainerState
   }
 
   @override
+  String computeConfigSignature() {
+    return '${widget.glassStyle.name}|${widget.tint?.value}|${widget.cornerRadius}|${_isDark}|${widget.interactive}|${defaultTargetPlatform}';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // 1. Check if inactive or disabled globally
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+      if (!CupertinoNativeConfig.platformViewsEnabled) {
+         // Fallback to Flutter imitation if disabled
+         return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            color: _applyOpacity(widget.tint, 0.1) ??
+                _applyOpacity(
+                  CupertinoColors.systemBackground.resolveFrom(context),
+                  0.8,
+                ),
+            borderRadius: BorderRadius.circular(widget.cornerRadius),
+          ),
+          child: widget.interactive
+              ? GestureDetector(onTap: widget.onTap, child: widget.child)
+              : widget.child,
+        );
+      }
+      return Container(
+        width: widget.width,
+        height: widget.height,
+        color: const Color(0x00000000), // Invisible placeholder
+        child: widget.child,
+      );
+    }
+
+    // 2. Platform check
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
       // Fallback for unsupported platforms
@@ -215,37 +262,7 @@ class _CNGlassEffectContainerState
       );
     }
 
-    const viewType = 'CupertinoNativeGlassEffectContainer';
-    final creationParams = <String, dynamic>{
-      'isDark': _isDark,
-      'cornerRadius': widget.cornerRadius,
-      'interactive': widget.interactive,
-      if (widget.tint != null) 'tint': _colorToArgb(widget.tint!),
-      if (defaultTargetPlatform == TargetPlatform.iOS)
-        'glassStyle': widget.glassStyle.name,
-      // For macOS, use defaults
-      if (defaultTargetPlatform == TargetPlatform.macOS) ...{
-        'material': 'sidebar', // default
-        'blending': 'behindWindow', // default
-      },
-    };
-
-    Widget platformView;
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      platformView = UiKitView(
-        viewType: viewType,
-        creationParams: creationParams,
-        creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: _onPlatformViewCreated,
-      );
-    } else {
-      platformView = AppKitView(
-        viewType: viewType,
-        creationParams: creationParams,
-        creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: _onPlatformViewCreated,
-      );
-    }
+    Widget platformView = getPlatformViewCached('CupertinoNativeGlassEffectContainer');
 
     Widget finalView = ClipRRect(
       borderRadius: BorderRadius.circular(widget.cornerRadius),
@@ -261,6 +278,40 @@ class _CNGlassEffectContainerState
     }
 
     return finalView;
+  }
+
+  @override
+  Widget buildPlatformView() {
+    const viewType = 'CupertinoNativeGlassEffectContainer';
+    final creationParams = <String, dynamic>{
+      'isDark': _isDark,
+      'cornerRadius': widget.cornerRadius,
+      'interactive': widget.interactive,
+      if (widget.tint != null) 'tint': _colorToArgb(widget.tint!),
+      if (defaultTargetPlatform == TargetPlatform.iOS)
+        'glassStyle': widget.glassStyle.name,
+      // For macOS, use defaults
+      if (defaultTargetPlatform == TargetPlatform.macOS) ...{
+        'material': 'sidebar', // default
+        'blending': 'behindWindow', // default
+      },
+    };
+
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return UiKitView(
+        viewType: viewType,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _onPlatformViewCreated,
+      );
+    } else {
+      return AppKitView(
+        viewType: viewType,
+        creationParams: creationParams,
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: _onPlatformViewCreated,
+      );
+    }
   }
 
   void _onPlatformViewCreated(int id) {

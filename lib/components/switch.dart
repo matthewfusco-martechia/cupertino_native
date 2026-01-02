@@ -3,7 +3,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
+import '../channel/platform_view_guard.dart';
 import '../channel/params.dart';
+import '../cupertino_native_config.dart';
 
 /// Controller for a [CNSwitch] that allows imperative updates from Dart
 /// to the underlying native UISwitch/NSSwitch instance.
@@ -51,6 +53,7 @@ class CNSwitch extends StatefulWidget {
     this.controller,
     this.height = 44.0,
     this.color,
+    this.active = true,
   });
 
   /// Whether the switch is on.
@@ -71,11 +74,14 @@ class CNSwitch extends StatefulWidget {
   /// Optional tint color to apply to the switch.
   final Color? color;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   State<CNSwitch> createState() => _CNSwitchState();
 }
 
-class _CNSwitchState extends State<CNSwitch> {
+class _CNSwitchState extends State<CNSwitch> with PlatformViewGuard<CNSwitch> {
   MethodChannel? _channel;
 
   bool? _lastValue;
@@ -112,7 +118,25 @@ class _CNSwitchState extends State<CNSwitch> {
   }
 
   @override
+  String computeConfigSignature() {
+    return 'stable';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+      if (!CupertinoNativeConfig.platformViewsEnabled) {
+          return SizedBox(
+           height: widget.height,
+           child: Switch(
+             value: widget.value,
+             onChanged: widget.enabled ? widget.onChanged : null,
+           ),
+         );
+      }
+      return SizedBox(height: widget.height);
+    }
+  
     // Fallback to Flutter Switch on unsupported platforms.
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
@@ -125,12 +149,6 @@ class _CNSwitchState extends State<CNSwitch> {
       );
     }
 
-    const viewType = 'CupertinoNativeSwitch';
-    // Platform views expand to the biggest size in unconstrained axes.
-    // When placed in a Row, width can be unconstrained which would cause
-    // the platform view to try to expand to Infinity. Provide a finite
-    // width based on the native switch aspect ratio to avoid layout
-    // assertions in such cases.
     double estimatedWidthFor(double height) {
       // Approximate iOS UISwitch size is 51x31pt => ~1.645 aspect ratio.
       const ratio = 51.0 / 31.0;
@@ -138,6 +156,18 @@ class _CNSwitchState extends State<CNSwitch> {
     }
 
     final double width = estimatedWidthFor(widget.height);
+    final platformView = getPlatformViewCached('CupertinoNativeSwitch');
+
+    return SizedBox(
+      height: widget.height,
+      width: width,
+      child: platformView,
+    );
+  }
+
+  @override
+  Widget buildPlatformView() {
+    const viewType = 'CupertinoNativeSwitch';
     final creationParams = <String, dynamic>{
       'value': widget.value,
       'enabled': widget.enabled,
@@ -146,29 +176,7 @@ class _CNSwitchState extends State<CNSwitch> {
     };
 
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return SizedBox(
-        height: widget.height,
-        width: width,
-        child: UiKitView(
-          viewType: viewType,
-          creationParamsCodec: const StandardMessageCodec(),
-          creationParams: creationParams,
-          onPlatformViewCreated: _onPlatformViewCreated,
-          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-            Factory<HorizontalDragGestureRecognizer>(
-              () => HorizontalDragGestureRecognizer(),
-            ),
-            Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
-          },
-        ),
-      );
-    }
-
-    // macOS
-    return SizedBox(
-      height: widget.height,
-      width: width,
-      child: AppKitView(
+      return UiKitView(
         viewType: viewType,
         creationParamsCodec: const StandardMessageCodec(),
         creationParams: creationParams,
@@ -179,8 +187,22 @@ class _CNSwitchState extends State<CNSwitch> {
           ),
           Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
         },
-      ),
-    );
+      );
+    } else {
+      // macOS
+      return AppKitView(
+        viewType: viewType,
+        creationParamsCodec: const StandardMessageCodec(),
+        creationParams: creationParams,
+        onPlatformViewCreated: _onPlatformViewCreated,
+        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+          Factory<HorizontalDragGestureRecognizer>(
+            () => HorizontalDragGestureRecognizer(),
+          ),
+          Factory<TapGestureRecognizer>(() => TapGestureRecognizer()),
+        },
+      );
+    }
   }
 
   void _onPlatformViewCreated(int id) {

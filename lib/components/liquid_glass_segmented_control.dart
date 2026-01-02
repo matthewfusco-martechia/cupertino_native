@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
+import '../channel/platform_view_guard.dart';
 import '../channel/params.dart';
+import '../cupertino_native_config.dart';
 import '../style/sf_symbol.dart';
 
 /// A segment control styled to look exactly like the liquid glass tab bar.
@@ -21,6 +23,7 @@ class CNLiquidGlassSegmentedControl extends StatefulWidget {
     this.tint,
     this.height = 90.0,
     this.shrinkWrap = true,
+    this.active = true,
   });
 
   /// Segment labels to display.
@@ -44,13 +47,17 @@ class CNLiquidGlassSegmentedControl extends StatefulWidget {
   /// If true, sizes the control to its intrinsic width.
   final bool shrinkWrap;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   State<CNLiquidGlassSegmentedControl> createState() =>
       _CNLiquidGlassSegmentedControlState();
 }
 
 class _CNLiquidGlassSegmentedControlState
-    extends State<CNLiquidGlassSegmentedControl> {
+    extends State<CNLiquidGlassSegmentedControl>
+    with PlatformViewGuard<CNLiquidGlassSegmentedControl> {
   MethodChannel? _channel;
   int? _lastSelected;
   bool? _lastIsDark;
@@ -78,7 +85,30 @@ class _CNLiquidGlassSegmentedControlState
   }
 
   @override
+  String computeConfigSignature() {
+    return 'stable';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+      if (!CupertinoNativeConfig.platformViewsEnabled) {
+         // Fallback logic
+         return SizedBox(
+          height: widget.height,
+          child: CupertinoSegmentedControl<int>(
+            children: {
+              for (var i = 0; i < widget.labels.length; i++)
+                i: Text(widget.labels[i]),
+            },
+            groupValue: widget.selectedIndex,
+            onValueChanged: widget.onValueChanged,
+          ),
+        );
+      }
+      return SizedBox(height: widget.height);
+    }
+
     if (!(defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS)) {
       // Fallback for non-Apple platforms
@@ -95,32 +125,7 @@ class _CNLiquidGlassSegmentedControlState
       );
     }
 
-    const viewType = 'CupertinoNativeLiquidGlassSegmentedControl';
-    final creationParams = <String, dynamic>{
-      'labels': widget.labels,
-      'selectedIndex': widget.selectedIndex,
-      'isDark': _isDark,
-      'style': encodeStyle(context, tint: widget.tint),
-      if (widget.sfSymbols != null)
-        'sfSymbols': widget.sfSymbols!.map((e) => e.name).toList(),
-    };
-
-    Widget platformView;
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      platformView = UiKitView(
-        viewType: viewType,
-        creationParamsCodec: const StandardMessageCodec(),
-        creationParams: creationParams,
-        onPlatformViewCreated: _onPlatformViewCreated,
-      );
-    } else {
-      platformView = AppKitView(
-        viewType: viewType,
-        creationParamsCodec: const StandardMessageCodec(),
-        creationParams: creationParams,
-        onPlatformViewCreated: _onPlatformViewCreated,
-      );
-    }
+    final platformView = getPlatformViewCached('CupertinoNativeLiquidGlassSegmentedControl');
 
     if (widget.shrinkWrap) {
       final width = _intrinsicWidth;
@@ -134,6 +139,35 @@ class _CNLiquidGlassSegmentedControlState
     }
 
     return SizedBox(height: widget.height, child: platformView);
+  }
+
+  @override
+  Widget buildPlatformView() {
+    const viewType = 'CupertinoNativeLiquidGlassSegmentedControl';
+    final creationParams = <String, dynamic>{
+      'labels': widget.labels,
+      'selectedIndex': widget.selectedIndex,
+      'isDark': _isDark,
+      'style': encodeStyle(context, tint: widget.tint),
+      if (widget.sfSymbols != null)
+        'sfSymbols': widget.sfSymbols!.map((e) => e.name).toList(),
+    };
+
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return UiKitView(
+        viewType: viewType,
+        creationParamsCodec: const StandardMessageCodec(),
+        creationParams: creationParams,
+        onPlatformViewCreated: _onPlatformViewCreated,
+      );
+    } else {
+      return AppKitView(
+        viewType: viewType,
+        creationParamsCodec: const StandardMessageCodec(),
+        creationParams: creationParams,
+        onPlatformViewCreated: _onPlatformViewCreated,
+      );
+    }
   }
 
   void _onPlatformViewCreated(int id) {

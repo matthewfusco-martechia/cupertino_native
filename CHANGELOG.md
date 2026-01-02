@@ -1,3 +1,9 @@
+## 0.1.12
+* **Performance**: Implemented `PlatformViewGuard` to eliminate redundant native view recreation during rebuilds.
+* **Performance**: Added `active` parameter to all components to allow disabling native views when off-screen.
+* **Feature**: Added global kill-switch `CupertinoNativeConfig.platformViewsEnabled` for emergency fallback to Flutter widgets.
+* **Refactor**: Improved internal cleanup logic to prevent memory leaks.
+
 ## 0.1.2
 
 * Fixed `LiquidGlassSegmentedControl` layout clipping and edge artifacts.

@@ -2,7 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../channel/platform_view_guard.dart';
 import '../channel/params.dart';
+import '../cupertino_native_config.dart';
 import '../style/sf_symbol.dart';
 
 /// A platform-rendered SF Symbol icon.
@@ -18,6 +20,7 @@ class CNIcon extends StatefulWidget {
     this.mode,
     this.gradient,
     this.height,
+    this.active = true,
   });
 
   /// The SF Symbol to render.
@@ -38,11 +41,14 @@ class CNIcon extends StatefulWidget {
   /// Optional fixed height; defaults to the icon's size.
   final double? height;
 
+  /// Whether the platform view is active.
+  final bool active;
+
   @override
   State<CNIcon> createState() => _CNIconState();
 }
 
-class _CNIconState extends State<CNIcon> {
+class _CNIconState extends State<CNIcon> with PlatformViewGuard<CNIcon> {
   MethodChannel? _channel;
   bool? _lastIsDark;
   String? _lastName;
@@ -73,7 +79,35 @@ class _CNIconState extends State<CNIcon> {
   }
 
   @override
+  String computeConfigSignature() {
+    return 'stable';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final fallbackSize = widget.size ?? widget.symbol.size;
+    final h = widget.height ?? fallbackSize;
+    final w = fallbackSize;
+
+    if (!widget.active || !CupertinoNativeConfig.platformViewsEnabled) {
+       // Return placeholder to preserve layout
+       return SizedBox(width: w, height: h);
+    }
+    
+    // Fallback?
+    if (!(defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS)) {
+       return SizedBox(width: w, height: h);
+    }
+
+    final platformView = getPlatformViewCached('CupertinoNativeIcon');
+
+    // Ensure the platform view always has finite constraints
+    return SizedBox(width: w, height: h, child: platformView);
+  }
+
+  @override
+  Widget buildPlatformView() {
     const viewType = 'CupertinoNativeIcon';
 
     final symbol = widget.symbol;
@@ -98,25 +132,21 @@ class _CNIconState extends State<CNIcon> {
       },
     };
 
-    final platformView = defaultTargetPlatform == TargetPlatform.iOS
-        ? UiKitView(
-            viewType: viewType,
-            creationParamsCodec: const StandardMessageCodec(),
-            creationParams: creationParams,
-            onPlatformViewCreated: _onPlatformViewCreated,
-          )
-        : AppKitView(
-            viewType: viewType,
-            creationParamsCodec: const StandardMessageCodec(),
-            creationParams: creationParams,
-            onPlatformViewCreated: _onPlatformViewCreated,
-          );
-
-    // Ensure the platform view always has finite constraints
-    final fallbackSize = widget.size ?? widget.symbol.size;
-    final h = widget.height ?? fallbackSize;
-    final w = fallbackSize;
-    return SizedBox(width: w, height: h, child: platformView);
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return UiKitView(
+        viewType: viewType,
+        creationParamsCodec: const StandardMessageCodec(),
+        creationParams: creationParams,
+        onPlatformViewCreated: _onPlatformViewCreated,
+      );
+    } else {
+      return AppKitView(
+        viewType: viewType,
+        creationParamsCodec: const StandardMessageCodec(),
+        creationParams: creationParams,
+        onPlatformViewCreated: _onPlatformViewCreated,
+      );
+    }
   }
 
   void _onPlatformViewCreated(int id) {
